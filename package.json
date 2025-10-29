@@ -1,0 +1,24 @@
+{
+  "name": "news-curator", // <<<--- UPDATED NAME
+  "version": "1.0.0",
+  "description": "AI-powered general news curator and social media prep tool.", // <<<--- UPDATED DESCRIPTION
+  "main": "server.js",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "start": "node server.js" // Removed `npm install` for production efficiency
+  },
+  "dependencies": {
+    "@google/genai": "^1.26.0", // Use specific version or range as needed
+    "body-parser": "^1.20.2",
+    "cron": "^3.1.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^134.0.0",
+    "mongodb": "^6.5.0",
+    "node-fetch": "^2.7.0", // node-fetch v2 for CommonJS compatibility
+    "rss-parser": "^3.13.0",
+    "sharp": "^0.33.3"
+  }
+}
