@@ -1,4 +1,4 @@
-// aggregator.js (UPDATED with cleaned RSS Feeds and exported fetch function)
+// aggregator.js (UPDATED: startScheduler only starts the job)
 
 const Parser = require('rss-parser');
 const parser = new Parser({
@@ -9,8 +9,7 @@ const parser = new Parser({
 const cron = require('cron');
 const db = require('./database');
 
-
-// --- NEW RSS FEED CONFIGURATION (Dead/Forbidden links commented out) ---
+// --- RSS FEED CONFIGURATION (Dead/Forbidden links commented out) ---
 const RSS_FEEDS_MASTER = [
   // --- 📰 Top-Level World & US News ---
   { name: 'Reuters - Top News', url: 'http://feeds.reuters.com/reuters/topNews' },
@@ -56,7 +55,7 @@ const RSS_FEEDS_MASTER = [
   { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
   { name: 'Ars Technica', url: 'http://feeds.arstechnica.com/arstechnica/index' },
   { name: 'Wired', url: 'https://www.wired.com/feed/rss' },
-  { name: 'Hacker News', url: 'https://news.ycombin.com/rss' },
+  { name: 'Hacker News', url: 'https://news.ycombinator.com/rss' },
   { name: 'ZDNet', url: 'https://www.zdnet.com/feed/' },
   { name: 'Engadget', url: 'https://www.engadget.com/rss.xml' },
   { name: 'MIT Technology Review', url: 'https://www.technologyreview.com/feed/' },
@@ -218,8 +217,13 @@ async function fetchAndProcessNews() {
 
             collectedArticles.push(...processedItems);
         } catch (error) {
-            // Log only if it's NOT a common 404/403/ENOTFOUND error
-            if (!error.message.includes('Status code 404') && !error.message.includes('Status code 403') && !error.message.includes('ENOTFOUND')) {
+            // Log only if it's NOT a common 404/403/ENOTFOUND/429 error
+            if (!error.message.includes('Status code 404') && 
+                !error.message.includes('Status code 403') &&
+                !error.message.includes('Status code 429') &&
+                !error.message.includes('ENOTFOUND') &&
+                !error.message.includes('socket hang up') &&
+                !error.message.includes('Invalid character')) {
                 console.error(`[ERROR] Failed to fetch feed for ${feed.name}: ${error.message}`);
             }
         }
@@ -246,9 +250,8 @@ module.exports = {
     startScheduler: () => {
         newsJob.start();
         console.log(`[Scheduler] RSS job scheduled on pattern: ${NEWS_CRON_PATTERN}`);
-        // DO NOT fetch immediately here. Let the server start first.
+        // DO NOT fetch immediately here.
     },
-    runFetch: fetchAndProcessNews, // <-- NEW: Export the function
+    runFetch: fetchAndProcessNews, // Export the function
     getNews: db.getAllArticles
 };
-

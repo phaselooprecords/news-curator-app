@@ -1,4 +1,4 @@
-// server.js (UPDATED with startup delay for fetch)
+k// server.js (UPDATED with cluster-aware scheduler)
 
 // 1. Import modules
 const express = require('express');
@@ -215,23 +215,16 @@ app.get('/admin', adminAuth, (req, res) => {
 });
 
 // --- SERVER START FUNCTION ---
+// This function is now ONLY run by worker processes
 async function startApp() {
     try {
         await db.connectDB();
         app.listen(PORT,'0.0.0.0', () => {
-            console.log(`Server running at http://localhost:${PORT}`);
-            
-            // Start the recurring schedule
-            aggregator.startScheduler();
-            
-            // --- UPDATED ---
-            // Run the first fetch *after* a 10-second delay
-            // This lets the server become "healthy" before doing heavy work.
-            console.log("Staging initial news fetch in 10 seconds...");
-            setTimeout(aggregator.runFetch, 10000); // 10-second delay
+            console.log(`Worker ${process.pid} running server at http://localhost:${PORT}`);
+            // NO SCHEDULING HERE
         });
     } catch (dbError) {
-        console.error("Failed to start server due to DB connection error:", dbError);
+        console.error(`Worker ${process.pid} failed to start:`, dbError);
         process.exit(1);
     }
 }
@@ -239,13 +232,25 @@ async function startApp() {
 // --- INITIATE SERVER START ---
 if (cluster.isPrimary) {
   console.log(`Primary ${process.pid} is running`);
+  
+  // Fork workers.
   for (let i = 0; i < numCPUs; i++) {
     cluster.fork();
   }
+
   cluster.on('exit', (worker, code, signal) => {
     console.log(`worker ${worker.process.pid} died`);
   });
+  
+  // --- SCHEDULING MOVED HERE ---
+  // The Primary process will manage the fetching.
+  console.log('Primary process is starting the aggregator scheduler...');
+  aggregator.startScheduler();
+  
+  console.log("Primary process staging initial news fetch in 10 seconds...");
+  setTimeout(aggregator.runFetch, 10000); // 10-second delay
 
 } else {
+  // Workers run the `startApp` function.
   startApp();
 }
