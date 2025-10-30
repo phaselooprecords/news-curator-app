@@ -6,7 +6,6 @@ FROM node:20-slim
 WORKDIR /app
 
 # Install necessary system packages for sharp, including fontconfig
-# RUN is used to execute commands during the image build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
@@ -16,18 +15,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package.json and package-lock.json first
-# This leverages Docker cache - dependencies are only reinstalled if these files change
+# This leverages Docker cache
 COPY package*.json ./
 
 # Install app dependencies using npm ci for deterministic installs
-# Use --omit=dev to skip development dependencies in production
+# This requires package-lock.json to be committed
 RUN npm ci --omit=dev
 
 # Copy the rest of your application code into the container
 COPY . .
 
-# Make port 3000 available (Railway uses env.PORT, but EXPOSE is good practice)
+# Make port 3000 available (Railway uses env.PORT)
 EXPOSE 3000
 
-# Define the command to run your app using the start script from package.json
+# Define the command to run your app using the start script
 CMD ["npm", "start"]
+
