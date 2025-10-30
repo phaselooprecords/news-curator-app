@@ -1,15 +1,15 @@
-// server.js (No new changes needed)
+// server.js (UPDATED with startup delay for fetch)
 
 // 1. Import modules
 const express = require('express');
 const path = require('path');
-const { startNewsFetch } = require('./aggregator.js');
 const bodyParser = require('body-parser');
+const basicAuth = require('express-basic-auth'); 
 const aggregator = require('./aggregator');
 const db = require('./database');
 const curator = require('./curator');
 const cluster = require('cluster');
-const os =require('os');
+const os = require('os');
 const numCPUs = os.cpus().length;
 
 // 2. Initialize the app and set the port
@@ -20,6 +20,20 @@ const PORT = process.env.PORT || 3000;
 // --- MIDDLEWARE SETUP ---
 app.use(bodyParser.json());
 app.use(express.static('public')); 
+
+// --- Basic Authentication Middleware ---
+const adminUser = process.env.ADMIN_USER || 'admin';
+const adminPass = process.env.ADMIN_PASSWORD;
+
+if (!adminPass) {
+    console.error("CRITICAL: ADMIN_PASSWORD environment variable is not set. Admin panel will not be accessible.");
+}
+
+const adminAuth = basicAuth({
+    users: { [adminUser]: adminPass },
+    challenge: true,
+    unauthorizedResponse: 'Access Denied. Please check your credentials.'
+});
 
 // --- API ROUTES (Endpoints) ---
 
@@ -55,7 +69,7 @@ app.post('/api/generate-text', async (req, res) => {
 app.post('/api/extract-keywords', async (req, res) => {
     const { headline, description } = req.body;
     if (!headline || !description) {
-        return res.status(400).json({ error: 'Missing headline or description for keyword extraction.' });
+        return res.status(400).json({ error: 'Missing headline or description.' });
     }
     try {
         const keywords = await curator.extractSearchKeywords(headline, description);
@@ -70,10 +84,9 @@ app.post('/api/extract-keywords', async (req, res) => {
 app.post('/api/get-alternative-keywords', async (req, res) => {
     const { headline, description, previousKeywords } = req.body;
     if (!headline || !description) {
-        return res.status(400).json({ error: 'Missing headline or description for alternative keyword extraction.' });
+        return res.status(400).json({ error: 'Missing headline or description.' });
     }
     const prevKeywordsArray = Array.isArray(previousKeywords) ? previousKeywords : [];
-
     try {
         const keywords = await curator.getAlternativeKeywords(headline, description, prevKeywordsArray);
         res.json({ keywords });
@@ -88,10 +101,9 @@ app.post('/api/get-alternative-keywords', async (req, res) => {
 app.post('/api/search-images', async (req, res) => {
     const { query, startIndex } = req.body;
     if (!query) {
-        return res.status(400).json({ error: 'Missing query for image search.' });
+        return res.status(400).json({ error: 'Missing query.' });
     }
     const index = parseInt(startIndex, 10) || 0;
-
     try {
         const imagesData = await curator.searchForRelevantImages(query, index);
         res.json({ images: imagesData });
@@ -105,7 +117,7 @@ app.post('/api/search-images', async (req, res) => {
 app.post('/api/find-related-articles', async (req, res) => {
     const { title, source } = req.body;
     if (!title || !source) {
-        return res.status(400).json({ error: 'Missing title or source for related search.' });
+        return res.status(400).json({ error: 'Missing title or source.' });
     }
     try {
         const relatedArticles = await curator.findRelatedWebArticles(title, source);
@@ -120,7 +132,7 @@ app.post('/api/find-related-articles', async (req, res) => {
 app.post('/api/find-video', async (req, res) => {
     const { title, source } = req.body;
     if (!title || !source) {
-        return res.status(400).json({ error: 'Missing title or source for video search.' });
+        return res.status(400).json({ error: 'Missing title or source.' });
     }
     try {
         const videoUrl = await curator.findRelatedVideo(title, source);
@@ -131,61 +143,76 @@ app.post('/api/find-video', async (req, res) => {
     }
 });
 
-
 // Simple Preview Image Generation
 app.post('/api/generate-simple-preview', async (req, res) => {
-    console.log("--- /api/generate-simple-preview: Endpoint START ---");
     const { imageUrl, overlayText } = req.body; 
-    console.log(`[/api/generate-simple-preview] INPUT imageUrl: ${imageUrl}`);
-    console.log(`[/api/generate-simple-preview] INPUT overlayText: ${overlayText}`); 
-
     if (!imageUrl || !overlayText) {
-        console.log("[/api/generate-simple-preview] Validation Failed: Missing imageUrl or overlayText."); 
-        return res.status(400).json({ error: 'Missing data for preview (imageUrl or overlayText).', previewImagePath: '/fallback.png' });
+        return res.status(400).json({ error: 'Missing data for preview.', previewImagePath: '/fallback.png' });
     }
-
     try {
-        console.log("[/api/generate-simple-preview] Calling curator.generateSimplePreviewImage...");
         const previewImagePath = await curator.generateSimplePreviewImage(imageUrl, overlayText); 
-        console.log(`[/api/generate-simple-preview] curator function returned: ${previewImagePath}`);
-
         if (previewImagePath === '/fallback.png') {
-            console.log("[/api/generate-simple-preview] Curator returned fallback path. Sending error indicator response.");
              res.status(200).json({ previewImagePath: '/fallback.png', error: 'Preview generation failed on server.' });
-        } else if (previewImagePath && typeof previewImagePath === 'string' && previewImagePath.startsWith('/preview_')) {
-             console.log("[/api/generate-simple-preview] Curator returned valid path. Sending success response.");
+        } else if (previewImagePath && previewImagePath.startsWith('/preview_')) {
              res.status(200).json({ previewImagePath: previewImagePath });
         } else {
-             console.error("[/api/generate-simple-preview] Curator returned unexpected value:", previewImagePath);
              throw new Error('Unexpected return value from image generator.');
         }
-        console.log("--- /api/generate-simple-preview: Endpoint END (Success Path) ---");
-
     } catch (error) {
-        console.error("--- /api/generate-simple-preview: CATCH BLOCK ERROR ---");
-        console.error("[/api/generate-simple-preview ERROR RAW]", error);
-        console.error(`[/api/generate-simple-preview ERROR Message]: ${error.message}`);
-        console.log("--- /api/generate-simple-preview: Endpoint END (Error Path) ---");
-        res.status(500).json({ error: 'Internal server error during preview generation.', previewImagePath: '/fallback.png' });
+        console.error("!!! ERROR in /api/generate-simple-preview:", error);
+        res.status(500).json({ error: 'Internal server error.', previewImagePath: '/fallback.png' });
     }
 });
 
 // Social Media Sharing (MOCK-UP)
 app.post('/api/share', async (req, res) => {
-    console.log("--> Received request for /api/share");
     const { imagePath, caption, platform } = req.body;
-    console.log(`\n*** MOCK SHARE REQUEST ***`);
-    console.log(`Platform: ${platform}`);
-    console.log(`Image Path: ${imagePath}`);
-    console.log(`Caption: ${(caption || '').substring(0, 80)}...`);
-    console.log(`**************************\n`);
-
-    if (platform === 'Instagram Story') {
-        return res.status(403).json({ error: 'Instagram Story posting via API is restricted.' });
-    }
+    console.log(`\n*** MOCK SHARE REQUEST to ${platform} ***\n`);
     res.json({ success: true, message: `Successfully simulated sharing to ${platform}!` });
 });
 
+// Add a new link (from admin panel)
+app.post('/api/links/add', async (req, res) => {
+    console.log("--> Received request for /api/links/add");
+    const { title, link } = req.body;
+    if (!title || !link) {
+        return res.status(400).json({ success: false, error: 'Missing title or link.' });
+    }
+    try {
+        await db.addLink(title, link);
+        res.json({ success: true, message: 'Link added!' });
+    } catch (error) {
+        console.error("!!! ERROR in /api/links/add:", error);
+        res.status(500).json({ success: false, error: 'Failed to add link.' });
+    }
+});
+
+// Get all links (for public page)
+app.get('/api/links/get', async (req, res) => {
+    console.log("--> Received request for /api/links/get");
+    try {
+        const links = await db.getAllLinks();
+        res.json(links);
+    } catch (error) {
+        console.error("!!! ERROR in /api/links/get:", error);
+        res.status(500).json({ error: 'Failed to retrieve links.' });
+    }
+});
+
+// --- PAGE ROUTING ---
+
+// Public root: Serves the public "link in bio" page
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'links.html'));
+});
+
+// Admin panel: Serves the private curator app, protected by password
+app.get('/admin', adminAuth, (req, res) => {
+    if (!adminPass) {
+        return res.status(500).send("Server is not configured with an ADMIN_PASSWORD. Access denied.");
+    }
+    res.sendFile(path.join(__dirname, 'admin', 'index.html'));
+});
 
 // --- SERVER START FUNCTION ---
 async function startApp() {
@@ -193,7 +220,15 @@ async function startApp() {
         await db.connectDB();
         app.listen(PORT,'0.0.0.0', () => {
             console.log(`Server running at http://localhost:${PORT}`);
+            
+            // Start the recurring schedule
             aggregator.startScheduler();
+            
+            // --- UPDATED ---
+            // Run the first fetch *after* a 10-second delay
+            // This lets the server become "healthy" before doing heavy work.
+            console.log("Staging initial news fetch in 10 seconds...");
+            setTimeout(aggregator.runFetch, 10000); // 10-second delay
         });
     } catch (dbError) {
         console.error("Failed to start server due to DB connection error:", dbError);
@@ -202,7 +237,6 @@ async function startApp() {
 }
 
 // --- INITIATE SERVER START ---
-
 if (cluster.isPrimary) {
   console.log(`Primary ${process.pid} is running`);
   for (let i = 0; i < numCPUs; i++) {
