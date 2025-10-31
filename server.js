@@ -1,4 +1,4 @@
-// server.js (UPDATED with cluster-aware scheduler AND DB connection for Primary)
+// server.js (UPDATED: Removed cluster for Railway compatibility)
 
 // 1. Import modules
 const express = require('express');
@@ -8,9 +8,9 @@ const basicAuth = require('express-basic-auth');
 const aggregator = require('./aggregator');
 const db = require('./database');
 const curator = require('./curator');
-const cluster = require('cluster');
-const os = require('os');
-const numCPUs = os.cpus().length;
+// const cluster = require('cluster'); // <-- REMOVED
+// const os = require('os'); // <-- REMOVED
+// const numCPUs = os.cpus().length; // <-- REMOVED
 
 // 2. Initialize the app and set the port
 const app = express();
@@ -215,55 +215,28 @@ app.get('/admin', adminAuth, (req, res) => {
 });
 
 // --- SERVER START FUNCTION ---
-// This function is now ONLY run by worker processes
+// This function is now run by a single process
 async function startApp() {
     try {
         await db.connectDB();
+        console.log("Database connected successfully.");
+
         app.listen(PORT,'0.0.0.0', () => {
-            console.log(`Worker ${process.pid} running server at http://localhost:${PORT}`);
+            console.log(`Server running at http://localhost:${PORT}`);
+            
+            // Start the recurring schedule
+            aggregator.startScheduler();
+            
+            // Run the first fetch *after* a 10-second delay
+            console.log("Staging initial news fetch in 10 seconds...");
+            setTimeout(aggregator.runFetch, 10000); // 10-second delay
         });
     } catch (dbError) {
-        console.error(`Worker ${process.pid} failed to start:`, dbError);
-        process.exit(1);
-    }
-}
-
-// --- NEW ASYNC FUNCTION FOR PRIMARY PROCESS ---
-async function runPrimaryProcess() {
-    try {
-        // 1. Primary process connects to DB itself
-        await db.connectDB(); 
-        console.log("Primary process connected to DB.");
-
-        console.log(`Primary ${process.pid} is running`);
-        
-        // 2. Fork workers (they will connect to DB in their own startApp)
-        for (let i = 0; i < numCPUs; i++) {
-            cluster.fork();
-        }
-        cluster.on('exit', (worker, code, signal) => {
-            console.log(`worker ${worker.process.pid} died`);
-        });
-
-        // 3. Start scheduler
-        console.log('Primary process is starting the aggregator scheduler...');
-        aggregator.startScheduler();
-
-        // 4. Stage initial fetch
-        console.log("Primary process staging initial news fetch in 10 seconds...");
-        setTimeout(aggregator.runFetch, 10000);
-
-    } catch (dbError) {
-        console.error("Primary process failed to connect to DB:", dbError);
+        console.error("Server failed to start:", dbError);
         process.exit(1);
     }
 }
 
 // --- INITIATE SERVER START ---
-if (cluster.isPrimary) {
-    // Run the new async function for the primary process
-    runPrimaryProcess();
-} else {
-    // Workers run the `startApp` function (which also connects to DB)
-    startApp();
-}
+// No more cluster logic, just run the app
+startApp();
