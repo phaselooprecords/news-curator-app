@@ -5,6 +5,10 @@ const { parentPort } = require('worker_threads');
 const Parser = require('rss-parser');
 const db = require('./database');
 
+// --- Helper function for throttling ---
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const DELAY_PER_FEED_MS = 250; // 250ms pause between each feed fetch
+
 // --- All the fetch logic is moved here from aggregator.js ---
 const parser = new Parser({
     customFields: {
@@ -76,16 +80,86 @@ const RSS_FEEDS_MASTER = [
   { name: 'Nature', url: 'https://www.nature.com/nature.rss' },
   { name: 'Scientific American', url: 'https://www.scientificamerican.com/feed/rss.cfm' },
   { name: 'ScienceDaily', url: 'http://feeds.sciencedaily.com/sciencedaily' },
-  { name: 'Quanta Magazine', url: 'httpsD' },
+  { name: 'Quanta Magazine', url: 'https://api.quantamagazine.org/feed/' },
+  { name: 'Space.com', url: 'https://www.space.com/feeds/all' },
+
+  // --- 🩺 Health & Medicine ---
+  { name: 'STAT News', url: 'https://www.statnews.com/feed/' },
+  { name: 'MedPage Today', url: 'https://www.medpagetoday.com/rss/headlines.xml' },
+  { name: 'NPR - Health', url: 'https://feeds.npr.org/1007/rss.xml' },
+  { name: 'New York Times - Health', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml' },
+
+  // --- 🌿 Environment & Climate ---
+  { name: 'Grist', url: 'https://grist.org/feed/' },
+  { name: 'Inside Climate News', url: 'https://insideclimatenews.org/feed/' },
+  { name: 'The Guardian - Environment', url: 'https://www.theguardian.com/environment/rss' },
+
+  // --- 🤔 Culture, Opinion & Long-form ---
+  { name: 'The Atlantic', url: 'https://www.theatlantic.com/feed/all/' },
+  { name: 'The New Yorker', url: 'https://www.newyorker.com/feed/everything' },
+  { name: 'Aeon', url: 'https://aeon.co/feed.rss' },
+  { name: 'NYT - Opinion', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Opinion.xml' },
+  { name: 'The Guardian - Opinion', url: 'https://www.theguardian.com/commentisfree/rss' },
+
+  // --- 🎬 Entertainment & Fandom ---
+  { name: 'Variety', url: 'https://variety.com/feed/' },
+  { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/' },
+  { name: 'Deadline', url: 'httpss://deadline.com/feed/' },
+  { name: 'Comic Book Resources (CBR)', url: 'https://www.cbr.com/feed/' },
+  { name: 'The Mary Sue', url: 'https://www.themarysue.com/feed/' },
+
+  // --- 🎨 Creative: Art & Photography ---
+  { name: 'Colossal (Art)', url: 'http://feeds.feedburner.com/colossal' },
+  { name: 'Hyperallergic', url: 'httpss://hyperallergic.com/feed/' },
+  { name: 'PetaPixel (Photography)', url: 'https://petapixel.com/feed/' },
+  { name: 'Booooooom', url: 'httpss://www.booooooom.com/feed/' },
+
+  // --- 🏠 Creative: Design & Architecture ---
+  { name: 'Dezeen', url: 'http://feeds.feedburner.com/dezeen' },
+  { name: 'designboom', url: 'httpss://www.designboom.com/feed/' },
+  { name: 'Swissmiss', url: 'httpss://www.swiss-miss.com/feed' },
+  { name: 'Curbed', url: 'httpss://www.curbed.com/rss/index.xml' },
+  
+  // --- 👟 Creative: Fashion & Style ---
+  { name: 'Vogue', url: 'httpss://www.vogue.com/feed/rss' },
+  { name: 'Hypebeast', url: 'httpss://hypebeast.com/feed' },
+
+  // --- 🍔 Hobbies: Food & Cooking ---
+  { name: 'Eater (All)', url: 'httpss://www.eater.com/rss/index.xml' },
+  { name: 'Bon Appétit', url: 'httpss://www.bonappetit.com/feed/rss' },
+  { name: 'Smitten Kitchen', url: 'http://feeds.feedburner.com/SmittenKitchen' },
+
+  // --- 🎮 Hobbies: Video Games ---
+  { name: 'Kotaku', url: 'httpss://kotaku.com/rss' },
+  { name: 'IGN', url: 'http://feeds.ign.com/ign/all' },
+  { name: 'Game Rant', url: 'httpss://gamerant.com/feed/' },
+  { name: 'GameSpot - All News', url: 'httpss://www.gamespot.com/feeds/news/' },
+  { name: 'Polygon', url: 'httpss://www.polygon.com/rss/index.xml' },
+
+  // --- ⚽ Hobbies: Sports ---
+  { name: 'ESPN', url: 'httpss://www.espn.com/espn/rss/news' },
+  { name: 'BBC Sport', url: 'http://feeds.bbci.co.uk/sport/rss.xml' },
+  { name: 'SB Nation', url: 'httpss://www.sbnation.com/rss/index.xml' },
+
+  // --- 🚗 Hobbies: Automotive ---
+  { name: 'Jalopnik', url: 'httpss://jalopnik.com/rss' },
+
+  // --- 📚 Intellectual: History, Philosophy, Literature ---
+  { name: 'Daily Stoic', url: 'httpss://dailystoic.com/feed/' },
+
+  // --- 💡 Lifestyle & Productivity ---
+  { name: 'Lifehacker', url: 'httpss://lifehacker.com/rss' },
+  { name: 'Fast Company', url: 'httpss://www.fastcompany.com/rss' },
+  { name: 'WIRED - Ideas', url: 'httpss://www.wired.com/feed/category/ideas/latest/rss' },
 
   // --- 🕵️ Investigative & Fact-Checking ---
   { name: 'ProPublica', url: 'http://feeds.propublica.org/propublica/main' },
-  { name: 'Snopes', url: 'https://www.snopes.com/feed/' },
-  { name: 'The Intercept', url: 'https://theintercept.com/feed/?lang=en' },
+  { name: 'Snopes', url: 'httpss://www.snopes.com/feed/' },
+  { name: 'The Intercept', url: 'httpss://theintercept.com/feed/?lang=en' },
 
   // --- 🎙️ Popular Podcasts (as Feeds) ---
   { name: '99% Invisible', url: 'http://feeds.99percentinvisible.org/99percentinvisible' },
-  { name: 'This American Life', url: 'http://feeds.thisamericanlife.org/talpodcast' },
+  { name:Amc, url: 'http://feeds.thisamericanlife.org/talpodcast' },
   { name: 'Radiolab', url: 'http://feeds.wnyc.org/radiolab' },
   { name: 'Freakonomics Radio', url: 'http://feeds.feedburner.com/freakonomicsradio' },
 ];
@@ -94,8 +168,12 @@ const RSS_FEEDS_MASTER = [
 async function fetchAndProcessNews() {
     console.log(`\n[Worker] --- Starting news fetch at ${new Date().toLocaleTimeString()} ---`);
     let collectedArticles = [];
+    let feedCount = 0;
+    const totalFeeds = RSS_FEEDS_MASTER.length;
 
     for (const feed of RSS_FEEDS_MASTER) {
+        feedCount++;
+        console.log(`[Worker] Fetching feed ${feedCount}/${totalFeeds}: ${feed.name}`);
         try {
             let rss = await parser.parseURL(feed.url);
             
@@ -129,11 +207,16 @@ async function fetchAndProcessNews() {
                 console.error(`[Worker ERROR] Failed to fetch feed for ${feed.name}: ${error.message}`);
             }
         }
+
+        // *** THIS IS THE FIX ***
+        // Wait for a short time after each feed to smooth out the CPU/network load
+        await delay(DELAY_PER_FEED_MS);
     }
     
     collectedArticles.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
     
     if (collectedArticles.length > 0) {
+        // The single bulkWrite at the end is efficient and fine.
         await db.insertArticles(collectedArticles); 
     }
     
