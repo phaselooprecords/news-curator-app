@@ -1,4 +1,4 @@
-// server.js (UPDATED with cluster-aware scheduler)
+// server.js (UPDATED with cluster-aware scheduler AND DB connection for Primary)
 
 // 1. Import modules
 const express = require('express');
@@ -36,6 +36,7 @@ const adminAuth = basicAuth({
 });
 
 // --- API ROUTES (Endpoints) ---
+// (All API routes remain the same as before)
 
 // Fetch all stored news articles
 app.get('/api/news', async (req, res) => {
@@ -221,7 +222,6 @@ async function startApp() {
         await db.connectDB();
         app.listen(PORT,'0.0.0.0', () => {
             console.log(`Worker ${process.pid} running server at http://localhost:${PORT}`);
-            // NO SCHEDULING HERE
         });
     } catch (dbError) {
         console.error(`Worker ${process.pid} failed to start:`, dbError);
@@ -229,28 +229,42 @@ async function startApp() {
     }
 }
 
+// --- NEW ASYNC FUNCTION FOR PRIMARY PROCESS ---
+async function runPrimaryProcess() {
+    try {
+        // 1. Primary process connects to DB itself
+        await db.connectDB(); 
+        console.log("Primary process connected to DB.");
+
+        console.log(`Primary ${process.pid} is running`);
+        
+        // 2. Fork workers (they will connect to DB in their own startApp)
+        for (let i = 0; i < numCPUs; i++) {
+            cluster.fork();
+        }
+        cluster.on('exit', (worker, code, signal) => {
+            console.log(`worker ${worker.process.pid} died`);
+        });
+
+        // 3. Start scheduler
+        console.log('Primary process is starting the aggregator scheduler...');
+        aggregator.startScheduler();
+
+        // 4. Stage initial fetch
+        console.log("Primary process staging initial news fetch in 10 seconds...");
+        setTimeout(aggregator.runFetch, 10000);
+
+    } catch (dbError) {
+        console.error("Primary process failed to connect to DB:", dbError);
+        process.exit(1);
+    }
+}
+
 // --- INITIATE SERVER START ---
 if (cluster.isPrimary) {
-  console.log(`Primary ${process.pid} is running`);
-  
-  // Fork workers.
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(`worker ${worker.process.pid} died`);
-  });
-  
-  // --- SCHEDULING MOVED HERE ---
-  // The Primary process will manage the fetching.
-  console.log('Primary process is starting the aggregator scheduler...');
-  aggregator.startScheduler();
-  
-  console.log("Primary process staging initial news fetch in 10 seconds...");
-  setTimeout(aggregator.runFetch, 10000); // 10-second delay
-
+    // Run the new async function for the primary process
+    runPrimaryProcess();
 } else {
-  // Workers run the `startApp` function.
-  startApp();
+    // Workers run the `startApp` function (which also connects to DB)
+    startApp();
 }
