@@ -1,4 +1,4 @@
-// curator.js (UPDATED: Relaxed safe search filter)
+// curator.js (UPDATED: Using the correct API key)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
@@ -10,7 +10,10 @@ const fetch = require('node-fetch');
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const model = 'gemini-2.5-flash';
 const customsearch = google.customsearch('v1');
-const GOOGLE_API_KEY = process.env.GEMINI_API_KEY; // Using Gemini key
+
+// *** THIS IS THE FIX ***
+// Use the GOOGLE_API_KEY for custom search, not the GEMINI_API_KEY
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; 
 const GOOGLE_SEARCH_CX = process.env.GOOGLE_SEARCH_CX;
 
 // --- HELPER FUNCTION: Escape XML/HTML characters ---
@@ -226,15 +229,13 @@ async function getAlternativeKeywords(headline, description, previousKeywords = 
 }
 
 
-// --- API FUNCTION 4: SEARCH FOR IMAGES (*** SAFE SEARCH RELAXED ***) ---
+// --- API FUNCTION 4: SEARCH FOR IMAGES ---
 async function searchForRelevantImages(query, startIndex = 0) {
     console.log(`[Image Search] Searching for: "${query}" starting at index ${startIndex}`);
     try {
         if (!GOOGLE_SEARCH_CX || !GOOGLE_API_KEY) { throw new Error("Google Search CX or API Key missing."); }
         const apiStartIndex = startIndex + 1;
         
-        // *** THIS IS THE FIX ***
-        // Changed 'safe: high' to 'safe: medium'
         const response = await customsearch.cse.list({ 
             auth: GOOGLE_API_KEY, 
             cx: GOOGLE_SEARCH_CX, 
@@ -242,7 +243,7 @@ async function searchForRelevantImages(query, startIndex = 0) {
             searchType: 'image', 
             num: 9, 
             start: apiStartIndex, 
-            safe: 'medium' // <-- Relaxed filter
+            safe: 'medium' // Relaxed filter
         });
 
         if (!response.data.items || response.data.items.length === 0) { 
