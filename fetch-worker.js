@@ -85,7 +85,7 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🩺 Health & Medicine ---
   { name: 'STAT News', url: 'https://www.statnews.com/feed/' },
-  { name: 'MedPage Today', url: 'https://www.medpagetoday.com/rss/headlines.xml' },
+  { name:m: 'MedPage Today', url: 'https://www.medpagetoday.com/rss/headlines.xml' },
   { name: 'NPR - Health', url: 'https://feeds.npr.org/1007/rss.xml' },
   { name: 'New York Times - Health', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml' },
 
@@ -104,7 +104,7 @@ const RSS_FEEDS_MASTER = [
   // --- 🎬 Entertainment & Fandom ---
   { name: 'Variety', url: 'https://variety.com/feed/' },
   { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/' },
-  { name: 'Deadline', url: 'httpss://deadline.com/feed/' },
+  { name: 'Deadline', url: 'https://deadline.com/feed/' },
   { name: 'Comic Book Resources (CBR)', url: 'https://www.cbr.com/feed/' },
   { name: 'The Mary Sue', url: 'https://www.themarysue.com/feed/' },
 
@@ -159,7 +159,8 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🎙️ Popular Podcasts (as Feeds) ---
   { name: '99% Invisible', url: 'http://feeds.99percentinvisible.org/99percentinvisible' },
-  { name:Amc, url: 'http://feeds.thisamericanlife.org/talpodcast' },
+  // *** THIS LINE IS NOW FIXED ***
+  { name: 'This American Life', url: 'http://feeds.thisamericanlife.org/talpodcast' },
   { name: 'Radiolab', url: 'http://feeds.wnyc.org/radiolab' },
   { name: 'Freakonomics Radio', url: 'http://feeds.feedburner.com/freakonomicsradio' },
 ];
