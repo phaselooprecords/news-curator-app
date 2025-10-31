@@ -3,9 +3,9 @@
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
 const { google } = require('googleapis');
-const path = require('path');
+// const path = require('path'); // <-- REMOVED (No longer saving to disk)
 const sharp = require('sharp');
-const fs = require('fs/promises');
+// const fs = require('fs/promises'); // <-- REMOVED (No longer saving to disk)
 const fetch = require('node-fetch');
 
 // --- API CLIENTS SETUP ---
@@ -255,6 +255,7 @@ async function findRelatedVideo(title, source) {
 
 
 // --- *** UTILITY FUNCTION: GENERATE PREVIEW IMAGE (NEWS STYLE) *** ---
+// *** MODIFIED FUNCTION ***
 async function generateSimplePreviewImage(imageUrl, overlayTextString) {
     console.log(`[Simple Preview] Starting preview generation.`);
     console.log(`[Simple Preview] Image URL: ${imageUrl}`);
@@ -341,19 +342,16 @@ async function generateSimplePreviewImage(imageUrl, overlayTextString) {
             .png().toBuffer();
         console.log("[Simple Preview] Image processing complete.");
 
-        // --- Save and Return ---
-        const filename = `preview_${Date.now()}.png`;
-        const imagePath = path.join(process.cwd(), 'public', filename);
-        await fs.writeFile(imagePath, finalImageBuffer);
-        console.log(`[Simple Preview] Success: Image saved to ${imagePath}`);
-        return `/${filename}`;
+        // --- Return Buffer ---
+        console.log(`[Simple Preview] Success: Returning image buffer.`);
+        return finalImageBuffer; // <-- RETURN THE BUFFER
 
     } catch (error) {
         console.error("--- generateSimplePreviewImage: CATCH BLOCK ENTERED ---");
         console.error("[generateSimplePreviewImage ERROR RAW]", error);
         console.error(`[generateSimplePreviewImage ERROR Message]: ${error.message}`);
         console.log("--- generateSimplePreviewImage: Function END (Error) ---");
-        return '/fallback.png';
+        return null; // <-- RETURN NULL ON FAILURE
     }
 }
 // --- END UPDATED FUNCTION ---

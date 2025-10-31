@@ -124,7 +124,8 @@
         // --- Global State Variables ---
         let currentArticleData = null;
         let currentCuratedData = null;
-        let simplePreviewImagePath = null;
+        let simplePreviewImagePath = null; // This will now hold an Object URL
+        let currentObjectUrl = null; // Helper to manage Object URL memory
         let currentVideoUrl = null;
         const IMAGES_PER_PAGE = 9;
         let currentSearchKeywords = [];
@@ -241,6 +242,14 @@
         // --- Handle Article Selection ---
         async function handleArticleTap(article) {
             console.log("handleArticleTap called for:", article.title);
+
+            // *** MODIFIED ***
+            // Revoke old object URL to prevent memory leaks
+            if (currentObjectUrl) {
+                URL.revokeObjectURL(currentObjectUrl);
+                currentObjectUrl = null;
+            }
+
             currentArticleData = article; currentCuratedData = null; currentVideoUrl = null; simplePreviewImagePath = null;
             currentSearchKeywords = []; currentKeywordIndex = 0; currentImageStartIndex = 0; currentImageContextUrl = null;
             isFetchingImages = false; 
@@ -397,7 +406,6 @@
 
         // --- Fetch Related Articles ---
         async function fetchRelatedArticles(title, source) {
-            // ... (keep existing code)
             const list = document.getElementById('related-articles-list');
             if (!list) { console.error("fetchRelatedArticles Error: List element not found!"); return; }
             list.innerHTML = "<p>Finding related articles...</p>";
@@ -444,7 +452,6 @@
 
         // --- Fetch Video ---
         async function fetchVideo(title, source, rssVideoUrl) {
-            // ... (keep existing code)
             let videoUrlToDisplay = rssVideoUrl;
             if (!videoUrlToDisplay) {
                 console.log("[Video] No video in RSS, searching online...");
@@ -471,7 +478,6 @@
 
         // --- Display Video ---
         function displayVideo(videoUrl, containerId) {
-            // ... (keep existing code)
              let videoElement = null;
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -507,16 +513,22 @@
         }
 
         // --- Call Simple Preview API ---
+        // *** MODIFIED FUNCTION ***
         async function startSimplePreviewPipeline(mediaUrl, contextUrl = null) {
-            // ... (keep existing code, ensures socialHeadline is sent)
              console.log(`startSimplePreviewPipeline called with URL: ${mediaUrl}, Context: ${contextUrl}`);
              const isVideo = currentVideoUrl && mediaUrl === currentVideoUrl; const isImageUrl = !isVideo;
              console.log(`startSimplePreviewPipeline: Is Video? ${isVideo}, Is Image? ${isImageUrl}`);
-             // If it's a video click, use the stored video URL, otherwise clear it
+             
              currentVideoUrl = isVideo ? mediaUrl : null; 
              simplePreviewImagePath = null; 
              currentImageContextUrl = isImageUrl ? contextUrl : null;
              
+            // Revoke old object URL if it exists
+            if (currentObjectUrl) {
+                URL.revokeObjectURL(currentObjectUrl);
+                currentObjectUrl = null;
+            }
+
              try {
                   if (isImageUrl) {
                       if (!currentCuratedData || !currentCuratedData.caption) { 
@@ -540,24 +552,31 @@
                             }) 
                         });
                       console.log(`startSimplePreviewPipeline: Received response. Status: ${response.status}`);
-                      if (!response.ok) { const errorText = await response.text(); console.error(`startSimplePreviewPipeline: Error response: ${response.status}`, errorText); throw new Error(`Server error: ${response.status}`); }
-                      console.log("startSimplePreviewPipeline: Trying response.json()...");
-                      const previewData = await response.json();
-                      console.log("startSimplePreviewPipeline: Parsed preview data:", previewData);
-                      if (previewData && previewData.previewImagePath && previewData.previewImagePath !== '/fallback.png') {
-                          simplePreviewImagePath = previewData.previewImagePath;
-                          console.log(`startSimplePreviewPipeline: Image path set: ${simplePreviewImagePath}`);
-                      } else {
-                          console.error('startSimplePreviewPipeline: Invalid data received:', previewData);
-                          throw new Error('Preview generation failed or invalid path.');
+                      
+                      if (!response.ok) { 
+                          const errorData = await response.json(); // Try to parse error
+                          console.error(`startSimplePreviewPipeline: Error response: ${response.status}`, errorData.error); 
+                          throw new Error(`Server error: ${errorData.error || response.status}`); 
                       }
+
+                      // Check if we got an image back
+                      const contentType = response.headers.get("content-type");
+                      if (contentType && contentType.includes("image/png")) {
+                           console.log("startSimplePreviewPipeline: Received image/png blob.");
+                           const imageBlob = await response.blob();
+                           simplePreviewImagePath = URL.createObjectURL(imageBlob); // Create object URL
+                           currentObjectUrl = simplePreviewImagePath; // Store for memory management
+                           console.log(`startSimplePreviewPipeline: Object URL created: ${simplePreviewImagePath}`);
+                      } else {
+                           console.error('startSimplePreviewPipeline: Invalid data received (not an image).');
+                           throw new Error('Preview generation failed or invalid response type.');
+                      }
+
                   }
                   else if (isVideo) {
-                      // Video case - we already fetched the video URL earlier
-                      // We just need to ensure the correct one is displayed in preview
+                      // Video case
                       alert("Preparing video preview...");
                       console.log("startSimplePreviewPipeline: Setting up video preview.");
-                      // Display the CURRENT video URL in the specific player for the preview view
                       displayVideo(currentVideoUrl, 'simple-preview-video-player'); 
                   }
                   
@@ -566,9 +585,8 @@
                       console.log("startSimplePreviewPipeline: Setting view to 'simple-preview'.");
                       setView('simple-preview'); // This function handles showing/hiding elements
                       if (simplePreviewImagePath) {
-                           document.getElementById('simple-preview-image').src = simplePreviewImagePath + '?' + Date.now();
+                           document.getElementById('simple-preview-image').src = simplePreviewImagePath;
                       }
-                      // No need to reset image index here anymore
                   }
                   else { console.warn("startSimplePreviewPipeline: No image/video path set."); alert('Preview generation failed.'); }
              } catch (error) { console.error('!!! CATCH ERROR in simple preview pipeline:', error); alert(`Failed to create preview: ${error.message}.`); simplePreviewImagePath = null; currentVideoUrl = null; }
@@ -576,7 +594,6 @@
 
         // --- Populate Caption Display ---
         function populateCaptionDisplay() {
-            // ... (keep existing code)
              console.log("populateCaptionDisplay: Function called.");
              const captionTextArea = document.getElementById('caption-text-area');
              if (!captionTextArea) { console.error("populateCaptionDisplay Error: Text area element not found!"); return; }
@@ -604,20 +621,74 @@
         }
         // --- Handle Copy Caption ---
         async function handleCopyCaption() {
-            // ... (keep existing code)
             const captionTextArea = document.getElementById('caption-text-area'); try { await navigator.clipboard.writeText(captionTextArea.value); alert("Caption copied!"); } catch (err) { console.error('Failed to copy:', err); alert("Failed to copy."); captionTextArea.select(); }
         }
+        
         // --- Share Button Logic ---
+        // *** MODIFIED FUNCTION ***
         async function handleShare() {
-            // ... (keep existing code)
             if (!simplePreviewImagePath && !currentVideoUrl) { alert("No image/video generated."); return; } if (!currentCuratedData) { alert("AI caption not ready."); return; } const shareTitle = (currentCuratedData.headline || "News Post").replace(/^\*\*|\*\*$/g, ''); const shareText = document.getElementById('caption-text-area').value; let shareData = { title: shareTitle, text: shareText, };
-            if (navigator.share) { try { if (simplePreviewImagePath && navigator.canShare) { const imageUrl = window.location.origin + simplePreviewImagePath; console.log(`Fetching image for sharing: ${imageUrl}`); const response = await fetch(imageUrl); if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`); const blob = await response.blob(); const fileName = `${shareTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`; const file = new File([blob], fileName, { type: 'image/png' }); if (navigator.canShare({ files: [file] })) { shareData.files = [file]; console.log("Sharing image file/text..."); } else { console.warn("Cannot share image file, sharing text/URL."); shareData.url = imageUrl; } } else if (currentVideoUrl) { console.log("Sharing text/video URL..."); shareData.url = currentVideoUrl; } else { console.log("Sharing text only..."); } await navigator.share(shareData); console.log('Successful share via Web Share API'); alert('Shared successfully!'); } catch (err) { console.error('Error during Web Share API:', err); if (err.name === 'AbortError') { console.log('Share cancelled.'); } else { alert(`Sharing failed: ${err.message}`); handleCopyCaption(); } } }
+            if (navigator.share) { 
+                try { 
+                    if (simplePreviewImagePath && navigator.canShare) { 
+                        // simplePreviewImagePath is now an object URL (e.g., "blob:http://...")
+                        const imageUrl = simplePreviewImagePath; 
+                        console.log(`Fetching image for sharing: ${imageUrl}`); 
+                        const response = await fetch(imageUrl); 
+                        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`); 
+                        const blob = await response.blob(); 
+                        const fileName = `${shareTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`; 
+                        const file = new File([blob], fileName, { type: 'image/png' }); 
+                        if (navigator.canShare({ files: [file] })) { 
+                            shareData.files = [file]; 
+                            console.log("Sharing image file/text..."); 
+                        } else { 
+                            console.warn("Cannot share image file, sharing text/URL."); 
+                            shareData.url = imageUrl; 
+                        } 
+                    } else if (currentVideoUrl) { 
+                        console.log("Sharing text/video URL..."); 
+                        shareData.url = currentVideoUrl; 
+                    } else { 
+                        console.log("Sharing text only..."); 
+                    } 
+                    await navigator.share(shareData); 
+                    console.log('Successful share via Web Share API'); 
+                    alert('Shared successfully!'); 
+                } catch (err) { 
+                    console.error('Error during Web Share API:', err); 
+                    if (err.name === 'AbortError') { 
+                        console.log('Share cancelled.'); 
+                    } else { 
+                        alert(`Sharing failed: ${err.message}`); 
+                        handleCopyCaption(); 
+                    } 
+                } 
+            }
             else { console.log("Web Share API not supported."); alert("Native sharing not supported. Caption copied."); handleCopyCaption(); }
         }
+        
         // --- Download Button Logic ---
         function handleDownload() {
-           // ... (keep existing code)
-            let didDownload = false; if (currentVideoUrl) { alert("Opening video URL..."); window.open(currentVideoUrl, '_blank'); didDownload = true; } else if (simplePreviewImagePath) { if (!currentCuratedData) { alert("AI data needed for filename."); return; } const link = document.createElement('a'); link.href = simplePreviewImagePath; const cleanedHeadlineText = (currentCuratedData?.headline || 'news-post').replace(/^\*\*|\*\*$/g, '').replace(/[^a-z0-9]/gi, '_').toLowerCase(); link.download = `${cleanedHeadlineText}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); didDownload = true; } else { alert("No image/video available."); }
+            let didDownload = false; 
+            if (currentVideoUrl) { 
+                alert("Opening video URL..."); 
+                window.open(currentVideoUrl, '_blank'); 
+                didDownload = true; 
+            } else if (simplePreviewImagePath) { 
+                // This works for object URLs
+                if (!currentCuratedData) { alert("AI data needed for filename."); return; } 
+                const link = document.createElement('a'); 
+                link.href = simplePreviewImagePath; 
+                const cleanedHeadlineText = (currentCuratedData?.headline || 'news-post').replace(/^\*\*|\*\*$/g, '').replace(/[^a-z0-9]/gi, '_').toLowerCase(); 
+                link.download = `${cleanedHeadlineText}.png`; 
+                document.body.appendChild(link); 
+                link.click(); 
+                document.body.removeChild(link); 
+                didDownload = true; 
+            } else { 
+                alert("No image/video available."); 
+            }
         }
 
     </script>

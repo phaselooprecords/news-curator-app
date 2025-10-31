@@ -1,4 +1,4 @@
-// server.js (UPDATED: Removed cluster for Railway compatibility)
+// server.js (UPDATED: Removed cluster and initial fetch)
 
 // 1. Import modules
 const express = require('express');
@@ -8,9 +8,6 @@ const basicAuth = require('express-basic-auth');
 const aggregator = require('./aggregator');
 const db = require('./database');
 const curator = require('./curator');
-// const cluster = require('cluster'); // <-- REMOVED
-// const os = require('os'); // <-- REMOVED
-// const numCPUs = os.cpus().length; // <-- REMOVED
 
 // 2. Initialize the app and set the port
 const app = express();
@@ -143,24 +140,28 @@ app.post('/api/find-video', async (req, res) => {
     }
 });
 
+// *** MODIFIED ENDPOINT ***
 // Simple Preview Image Generation
 app.post('/api/generate-simple-preview', async (req, res) => {
     const { imageUrl, overlayText } = req.body; 
     if (!imageUrl || !overlayText) {
-        return res.status(400).json({ error: 'Missing data for preview.', previewImagePath: '/fallback.png' });
+        return res.status(400).json({ error: 'Missing data for preview.' });
     }
     try {
-        const previewImagePath = await curator.generateSimplePreviewImage(imageUrl, overlayText); 
-        if (previewImagePath === '/fallback.png') {
-             res.status(200).json({ previewImagePath: '/fallback.png', error: 'Preview generation failed on server.' });
-        } else if (previewImagePath && previewImagePath.startsWith('/preview_')) {
-             res.status(200).json({ previewImagePath: previewImagePath });
+        // This function now returns a buffer or null
+        const imageBuffer = await curator.generateSimplePreviewImage(imageUrl, overlayText); 
+        
+        if (imageBuffer) {
+            // Set the correct content type and send the buffer directly
+            res.set('Content-Type', 'image/png');
+            res.send(imageBuffer);
         } else {
-             throw new Error('Unexpected return value from image generator.');
+            // Send a 500 error if the buffer is null (generation failed)
+            res.status(500).json({ error: 'Preview generation failed on server.' });
         }
     } catch (error) {
         console.error("!!! ERROR in /api/generate-simple-preview:", error);
-        res.status(500).json({ error: 'Internal server error.', previewImagePath: '/fallback.png' });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 });
 
@@ -227,9 +228,12 @@ async function startApp() {
             // Start the recurring schedule
             aggregator.startScheduler();
             
-            // Run the first fetch *after* a 10-second delay
-            console.log("Staging initial news fetch in 10 seconds...");
-            setTimeout(aggregator.runFetch, 10000); // 10-second delay
+            // ------------------
+            // --- FIX APPLIED ---
+            // ------------------
+            // Removed the initial fetch to prevent startup timeout
+            // console.log("Staging initial news fetch in 10 seconds...");
+            // setTimeout(aggregator.runFetch, 10000); // <-- REMOVED
         });
     } catch (dbError) {
         console.error("Server failed to start:", dbError);
