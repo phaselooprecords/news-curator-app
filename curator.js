@@ -1,4 +1,4 @@
-// curator.js (UPDATED: Removed restrictive image search filters)
+// curator.js (UPDATED: Relaxed safe search filter)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
@@ -214,7 +214,7 @@ async function getAlternativeKeywords(headline, description, previousKeywords = 
 }
 
 
-// --- API FUNCTION 4: SEARCH FOR IMAGES (*** FILTERS REMOVED ***) ---
+// --- API FUNCTION 4: SEARCH FOR IMAGES (*** SAFE SEARCH RELAXED ***) ---
 async function searchForRelevantImages(query, startIndex = 0) {
     console.log(`[Image Search] Searching for: "${query}" starting at index ${startIndex}`);
     try {
@@ -222,7 +222,7 @@ async function searchForRelevantImages(query, startIndex = 0) {
         const apiStartIndex = startIndex + 1;
         
         // *** THIS IS THE FIX ***
-        // Removed imgType: 'photo' and imgSize: 'medium'
+        // Changed 'safe: high' to 'safe: medium'
         const response = await customsearch.cse.list({ 
             auth: GOOGLE_API_KEY, 
             cx: GOOGLE_SEARCH_CX, 
@@ -230,7 +230,7 @@ async function searchForRelevantImages(query, startIndex = 0) {
             searchType: 'image', 
             num: 9, 
             start: apiStartIndex, 
-            safe: 'high' 
+            safe: 'medium' // <-- Relaxed filter
         });
 
         if (!response.data.items || response.data.items.length === 0) { 
