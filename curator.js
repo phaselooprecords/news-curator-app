@@ -1,4 +1,4 @@
-// curator.js (UPDATED: More reliable keyword prompts)
+// curator.js (UPDATED: Removed restrictive image search filters)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
@@ -129,7 +129,7 @@ async function generateAiText(article) {
     }
 }
 
-// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS (*** UPDATED PROMPT ***) ---
+// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS ---
 async function extractSearchKeywords(headline, description) {
     console.log(`[AI Keywords] Extracting keywords from: "${headline}" / "${description}"`);
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
@@ -170,7 +170,7 @@ async function extractSearchKeywords(headline, description) {
     }
 }
 
-// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS (*** UPDATED PROMPT ***) ---
+// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS ---
 async function getAlternativeKeywords(headline, description, previousKeywords = []) {
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
     const previousKeywordsString = previousKeywords.length > 0 ? `The user has already tried searching with: ${previousKeywords.map(kw => `"${kw}"`).join(', ')}.` : "This is the first request for alternative keywords.";
@@ -214,18 +214,49 @@ async function getAlternativeKeywords(headline, description, previousKeywords = 
 }
 
 
-// --- API FUNCTION 4: SEARCH FOR IMAGES ---
+// --- API FUNCTION 4: SEARCH FOR IMAGES (*** FILTERS REMOVED ***) ---
 async function searchForRelevantImages(query, startIndex = 0) {
     console.log(`[Image Search] Searching for: "${query}" starting at index ${startIndex}`);
     try {
         if (!GOOGLE_SEARCH_CX || !GOOGLE_API_KEY) { throw new Error("Google Search CX or API Key missing."); }
         const apiStartIndex = startIndex + 1;
-        const response = await customsearch.cse.list({ auth: GOOGLE_API_KEY, cx: GOOGLE_SEARCH_CX, q: query, searchType: 'image', num: 9, start: apiStartIndex, safe: 'high', imgType: 'photo', imgSize: 'medium' });
-        if (!response.data.items || response.data.items.length === 0) { if (startIndex === 0) { console.log(`[Image Search] No images found for "${query}".`); return []; } else { console.log(`[Image Search] No more images found.`); return []; } }
-        const imagesData = response.data.items.map(item => ({ imageUrl: item.link, contextUrl: item.image?.contextLink, query: query, width: item.image?.width, height: item.image?.height }));
+        
+        // *** THIS IS THE FIX ***
+        // Removed imgType: 'photo' and imgSize: 'medium'
+        const response = await customsearch.cse.list({ 
+            auth: GOOGLE_API_KEY, 
+            cx: GOOGLE_SEARCH_CX, 
+            q: query, 
+            searchType: 'image', 
+            num: 9, 
+            start: apiStartIndex, 
+            safe: 'high' 
+        });
+
+        if (!response.data.items || response.data.items.length === 0) { 
+            if (startIndex === 0) { 
+                console.log(`[Image Search] No images found for "${query}".`); 
+                return []; 
+            } else { 
+                console.log(`[Image Search] No more images found.`); 
+                return []; 
+            } 
+        }
+
+        const imagesData = response.data.items.map(item => ({ 
+            imageUrl: item.link, 
+            contextUrl: item.image?.contextLink, 
+            query: query, 
+            width: item.image?.width, 
+            height: item.image?.height 
+        }));
+        
         console.log(`[Image Search] Found ${imagesData.length} images.`);
         return imagesData;
-    } catch (error) { console.error(`[Image Search ERROR]`, error.message); return []; }
+    } catch (error) { 
+        console.error(`[Image Search ERROR]`, error.message); 
+        return []; 
+    }
 }
 
 // --- API FUNCTION 5: FIND RELATED WEB ARTICLES ---
