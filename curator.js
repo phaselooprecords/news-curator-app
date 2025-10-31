@@ -1,4 +1,4 @@
-// curator.js (UPDATED: Relaxed safe search filter)
+// curator.js (UPDATED: Stricter and smarter AI keyword prompts)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
@@ -129,18 +129,19 @@ async function generateAiText(article) {
     }
 }
 
-// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS ---
+// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS (*** UPDATED PROMPT ***) ---
 async function extractSearchKeywords(headline, description) {
     console.log(`[AI Keywords] Extracting keywords from: "${headline}" / "${description}"`);
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
     
+    // *** NEW, MORE FOCUSED PROMPT ***
     const prompt = `
         Analyze the following news item:
         ---
         ${inputText}
         ---
-        Identify the main subject (person, place, event, or key topic) from the text.
-        Provide a 2-4 word Google Image Search query for that subject.
+        Identify the single most important visual subject (e.g., "abandoned building", "AI chatbot", "Halloween candy").
+        Provide a 2-3 word Google Image Search query for that subject.
         OUTPUT ONLY the search query.`;
 
     try {
@@ -170,19 +171,24 @@ async function extractSearchKeywords(headline, description) {
     }
 }
 
-// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS ---
+// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS (*** UPDATED PROMPT ***) ---
 async function getAlternativeKeywords(headline, description, previousKeywords = []) {
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
-    const previousKeywordsString = previousKeywords.length > 0 ? `The user has already tried searching with: ${previousKeywords.map(kw => `"${kw}"`).join(', ')}.` : "This is the first request for alternative keywords.";
+    const previousKeywordsString = previousKeywords.map(kw => `"${kw}"`).join(', ');
     console.log(`[AI AltKeywords] Requesting alternative keywords, avoiding: ${previousKeywordsString}`);
     
+    // *** NEW, STRICTER PROMPT ***
     const prompt = `
-        Analyze the following news headline and description: "${inputText}"
-        ${previousKeywordsString}
-        The user needs a DIFFERENT keyword phrase (max 4 words) for a Google Image Search.
-        This new query must be different from the previous ones.
-        Example 1: If previous was "Biden Speech", a good alternative is "Joe Biden podium".
-        Example 2: If previous was "NASA Artemis Launch", a good alternative is "SLS rocket".
+        Analyze the following news headline: "${headline}"
+        The user has already searched for: ${previousKeywordsString}
+        Provide one new, alternative 2-3 word search query that is visually relevant.
+        This new query MUST NOT be the same as the previous ones.
+        
+        Example:
+        Headline: "Public safety plea urges individuals to stay away from abandoned buildings"
+        Previous: "abandoned buildings"
+        New Query: "urban decay"
+        
         OUTPUT ONLY the new alternative keyword phrase.`;
 
     try {
@@ -201,10 +207,16 @@ async function getAlternativeKeywords(headline, description, previousKeywords = 
                throw new Error("Error processing Gemini alt keyword response structure.");
           }
         console.log(`[AI AltKeywords] Raw Extracted Text: "${newKeywords}"`);
-        if (!newKeywords || newKeywords.toLowerCase().includes('cannot fulfill') || previousKeywords.includes(newKeywords)) {
+        
+        // *** NEW CHECK: Convert to lowercase for comparison ***
+        const lowerNewKeywords = newKeywords.toLowerCase();
+        const lowerPreviousKeywords = previousKeywords.map(kw => kw.toLowerCase());
+
+        if (!newKeywords || newKeywords.toLowerCase().includes('cannot fulfill') || lowerPreviousKeywords.includes(lowerNewKeywords)) {
             console.warn('[AI AltKeywords] Extraction failed, returned invalid, or repeated keywords.');
             return null;
         }
+        
         console.log(`[AI AltKeywords] Valid Alternative Keywords: "${newKeywords}"`);
         return newKeywords;
     } catch (error) {
@@ -214,15 +226,13 @@ async function getAlternativeKeywords(headline, description, previousKeywords = 
 }
 
 
-// --- API FUNCTION 4: SEARCH FOR IMAGES (*** SAFE SEARCH RELAXED ***) ---
+// --- API FUNCTION 4: SEARCH FOR IMAGES ---
 async function searchForRelevantImages(query, startIndex = 0) {
     console.log(`[Image Search] Searching for: "${query}" starting at index ${startIndex}`);
     try {
         if (!GOOGLE_SEARCH_CX || !GOOGLE_API_KEY) { throw new Error("Google Search CX or API Key missing."); }
         const apiStartIndex = startIndex + 1;
         
-        // *** THIS IS THE FIX ***
-        // Changed 'safe: high' to 'safe: medium'
         const response = await customsearch.cse.list({ 
             auth: GOOGLE_API_KEY, 
             cx: GOOGLE_SEARCH_CX, 
@@ -230,7 +240,7 @@ async function searchForRelevantImages(query, startIndex = 0) {
             searchType: 'image', 
             num: 9, 
             start: apiStartIndex, 
-            safe: 'medium' // <-- Relaxed filter
+            safe: 'medium' // Relaxed filter
         });
 
         if (!response.data.items || response.data.items.length === 0) { 
