@@ -36,7 +36,6 @@ const adminAuth = basicAuth({
 });
 
 // --- API ROUTES (Endpoints) ---
-// (All API routes remain the same as before)
 
 // Fetch all stored news articles
 app.get('/api/news', async (req, res) => {

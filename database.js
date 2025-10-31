@@ -1,30 +1,30 @@
-// database.js (Updated DB Name)
+// database.js (Includes link functions)
 
-require('dotenv').config();
-const { MongoClient } = require('mongodb');
+require('dotenv').config(); 
+const { MongoClient } = require('mongodb'); 
 
 // Get variables from .env file
-const uri = process.env.MONGO_URI;
-const dbName = "newsCuratorDB"; // <<<--- UPDATED NAME
+const uri = process.env.MONGO_URI; 
+const dbName = "newsCuratorDB"; // Using the News DB
 
 if (!uri) {
     throw new Error("MONGO_URI environment variable not set. Check your .env file.");
 }
 
 const client = new MongoClient(uri);
-let db;
+let db; 
 
 // --- CONNECTION FUNCTION ---
 async function connectDB() {
     try {
         console.log("Connecting to MongoDB Atlas...");
         await client.connect();
-        db = client.db(dbName);
+        db = client.db(dbName); 
         console.log(`Successfully connected to MongoDB database: ${dbName}!`);
 
     } catch (error) {
         console.error("Database connection failed:", error.message);
-        process.exit(1);
+        process.exit(1); 
     }
 }
 
@@ -35,14 +35,13 @@ async function insertArticles(articles) {
     if (!db) {
         throw new Error("Database not connected.");
     }
-    const collection = db.collection('articles'); // Still using 'articles' collection
+    const collection = db.collection('articles');
 
-    // Use bulkWrite for efficiency: update if link exists, insert otherwise
     const operations = articles.map(article => ({
         updateOne: {
-            filter: { link: article.link }, // Unique identifier
-            update: { $set: { ...article, fetchedAt: new Date() } }, // Update content and add fetch timestamp
-            upsert: true // Insert if doesn't exist
+            filter: { link: article.link },
+            update: { $set: { ...article, fetchedAt: new Date() } },
+            upsert: true
         }
     }));
 
@@ -62,8 +61,46 @@ async function getAllArticles() {
         throw new Error("Database not connected.");
     }
     const collection = db.collection('articles');
-    // Sort by publication date, newest first
     return await collection.find({}).sort({ pubDate: -1 }).toArray();
+}
+
+// --- FUNCTIONS FOR "MY LINKS" ---
+
+/**
+ * Adds a new link to the 'links' collection.
+ * Uses upsert to avoid duplicate links.
+ */
+async function addLink(title, link) {
+    if (!db) {
+        throw new Error("Database not connected.");
+    }
+    const collection = db.collection('links');
+    try {
+        const result = await collection.updateOne(
+            { link: link }, // Filter by link to prevent duplicates
+            { $set: { title: title, link: link, createdAt: new Date() } }, // Set data
+            { upsert: true } // Insert if it doesn't exist
+        );
+        if (result.upsertedCount > 0) {
+            console.log(`[DB] Added new link: ${title}`);
+        } else {
+            console.log(`[DB] Updated existing link: ${title}`);
+        }
+    } catch (error) {
+        console.error("[DB ERROR] Failed to add link:", error.message);
+        throw error; // Re-throw to be caught by server.js
+    }
+}
+
+/**
+ * Retrieves all links from the 'links' collection, sorted newest first.
+ */
+async function getAllLinks() {
+    if (!db) {
+        throw new Error("Database not connected.");
+    }
+    const collection = db.collection('links');
+    return await collection.find({}).sort({ createdAt: -1 }).toArray();
 }
 
 
@@ -71,5 +108,7 @@ async function getAllArticles() {
 module.exports = {
     connectDB,
     insertArticles,
-    getAllArticles
+    getAllArticles,
+    addLink,
+    getAllLinks
 };

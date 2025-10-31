@@ -30,4 +30,3 @@ EXPOSE 3000
 
 # Define the command to run your app using the start script
 CMD ["npm", "start"]
-
