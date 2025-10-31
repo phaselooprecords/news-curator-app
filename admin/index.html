@@ -230,7 +230,6 @@
                 articles.forEach((article, index) => {
                     const articleElement = document.createElement('div'); articleElement.className = 'article'; articleElement.dataset.link = article.link;
                     const imgElement = document.createElement('img'); imgElement.className = 'article-image';
-                    // *** MODIFIED *** (Points to the correct path)
                     imgElement.src = article.originalImageUrl || '/fallback-thumbnail.png'; 
                     imgElement.alt = 'Article thumbnail'; 
                     imgElement.onerror = function() { this.src='/fallback-thumbnail.png'; };
@@ -247,7 +246,6 @@
         async function handleArticleTap(article) {
             console.log("handleArticleTap called for:", article.title);
 
-            // *** MODIFIED ***
             // Revoke old object URL to prevent memory leaks
             if (currentObjectUrl) {
                 URL.revokeObjectURL(currentObjectUrl);
@@ -308,7 +306,7 @@
             }catch(error){console.error('!!! CATCH ERROR inside fetchAiText:',error);previewHeadlineEl.innerText="Error Generating AI Text";previewDescriptionEl.innerText="Please try another article or check server logs.";previewCaptionEl.innerText="";imageSelectionArea.innerHTML="<p>Error generating AI text.</p>";}
         }
 
-        // --- Fetch Primary Keywords & Start Image Search ---
+        // --- Fetch Primary Keywords & Start Image Search (*** UPDATED FALLBACK LOGIC ***) ---
         async function fetchPrimaryKeywordsAndStartImageSearch(headline, description) {
             document.getElementById('image-selection-area').innerHTML = '<p>Extracting primary keywords...</p>';
             try {
@@ -316,12 +314,29 @@
                 const response = await fetch('/api/extract-keywords', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ headline, description }) });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
-                let primaryKeyword = data.keywords;
-                if (!primaryKeyword) { console.warn("[Keywords] Primary extraction failed, falling back."); primaryKeyword = currentArticleData.title; document.getElementById('image-selection-area').innerHTML = '<p>Keyword extraction failed, using title...</p>'; }
-                currentSearchKeywords = [primaryKeyword]; currentKeywordIndex = 0; currentImageStartIndex = 0;
+                let primaryKeyword = data.keywords; // This is the result from curator.js
+
+                // *** THIS IS THE CRITICAL FALLBACK LOGIC ***
+                if (!primaryKeyword) { 
+                    console.warn("[Keywords] Primary extraction failed, falling back to article title."); 
+                    primaryKeyword = currentArticleData.title; // Fallback to original article title
+                }
+                
                 console.log(`[Keywords] Received primary: "${primaryKeyword}", starting image search.`);
+                currentSearchKeywords = [primaryKeyword]; 
+                currentKeywordIndex = 0; 
+                currentImageStartIndex = 0;
                 fetchImages(primaryKeyword, 0); 
-            } catch (error) { console.error("Error fetching primary keywords:", error); console.warn("[Keywords] Fetch failed, falling back."); currentSearchKeywords = [currentArticleData.title]; currentKeywordIndex = 0; currentImageStartIndex = 0; document.getElementById('image-selection-area').innerHTML = '<p>Keyword fetch failed, using title...</p>'; fetchImages(currentArticleData.title, 0); }
+            } catch (error) { 
+                console.error("Error fetching primary keywords:", error); 
+                console.warn("[Keywords] Fetch failed, falling back to article title."); 
+                let fallbackKeyword = currentArticleData.title; // Fallback to original article title
+                currentSearchKeywords = [fallbackKeyword]; 
+                currentKeywordIndex = 0; 
+                currentImageStartIndex = 0; 
+                document.getElementById('image-selection-area').innerHTML = `<p>Keyword fetch failed, using title: "${fallbackKeyword}"</p>`; 
+                fetchImages(fallbackKeyword, 0); 
+            }
         }
 
         // --- Fetch Alternative Keywords ---
@@ -517,7 +532,6 @@
         }
 
         // --- Call Simple Preview API ---
-        // *** MODIFIED FUNCTION (Handles blob response) ***
         async function startSimplePreviewPipeline(mediaUrl, contextUrl = null) {
              console.log(`startSimplePreviewPipeline called with URL: ${mediaUrl}, Context: ${contextUrl}`);
              const isVideo = currentVideoUrl && mediaUrl === currentVideoUrl; const isImageUrl = !isVideo;
@@ -629,7 +643,6 @@
         }
         
         // --- Share Button Logic ---
-        // *** MODIFIED FUNCTION (Handles blob URL) ***
         async function handleShare() {
             if (!simplePreviewImagePath && !currentVideoUrl) { alert("No image/video generated."); return; } if (!currentCuratedData) { alert("AI caption not ready."); return; } const shareTitle = (currentCuratedData.headline || "News Post").replace(/^\*\*|\*\*$/g, ''); const shareText = document.getElementById('caption-text-area').value; let shareData = { title: shareTitle, text: shareText, };
             if (navigator.share) { 

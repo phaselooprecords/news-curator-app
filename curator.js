@@ -1,11 +1,9 @@
-// curator.js (UPDATED: Returns image buffer)
+// curator.js (UPDATED: More reliable keyword prompts)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
 const { google } = require('googleapis');
-// const path = require('path'); // <-- REMOVED (No longer saving to disk)
 const sharp = require('sharp');
-// const fs = require('fs/promises'); // <-- REMOVED (No longer saving to disk)
 const fetch = require('node-fetch');
 
 // --- API CLIENTS SETUP ---
@@ -131,19 +129,19 @@ async function generateAiText(article) {
     }
 }
 
-// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS ---
+// --- API FUNCTION 2: EXTRACT SEARCH KEYWORDS (*** UPDATED PROMPT ***) ---
 async function extractSearchKeywords(headline, description) {
     console.log(`[AI Keywords] Extracting keywords from: "${headline}" / "${description}"`);
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
     
     const prompt = `
-        Analyze the following text about a news item:
+        Analyze the following news item:
         ---
         ${inputText}
         ---
-        Identify the main subject(s) (person, place, event, topic) from the text above.
-        Based ONLY on the main subject(s), provide the BEST concise keyword phrase (max 4 words) suitable for a Google Image Search.
-        OUTPUT ONLY the keyword phrase.`;
+        Identify the main subject (person, place, event, or key topic) from the text.
+        Provide a 2-4 word Google Image Search query for that subject.
+        OUTPUT ONLY the search query.`;
 
     try {
         const generationResult = await ai.models.generateContent({ model, contents: [{ role: 'user', parts: [{ text: prompt }] }] });
@@ -172,16 +170,20 @@ async function extractSearchKeywords(headline, description) {
     }
 }
 
-// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS ---
+// --- API FUNCTION 3: GET ALTERNATIVE KEYWORDS (*** UPDATED PROMPT ***) ---
 async function getAlternativeKeywords(headline, description, previousKeywords = []) {
     const inputText = `Headline: ${headline}\nDescription: ${description}`;
     const previousKeywordsString = previousKeywords.length > 0 ? `The user has already tried searching with: ${previousKeywords.map(kw => `"${kw}"`).join(', ')}.` : "This is the first request for alternative keywords.";
     console.log(`[AI AltKeywords] Requesting alternative keywords, avoiding: ${previousKeywordsString}`);
+    
     const prompt = `
         Analyze the following news headline and description: "${inputText}"
         ${previousKeywordsString}
-        The user needs a DIFFERENT, concise keyword phrase (max 4 words) suitable for a Google Image Search related to the news item...
-        OUTPUT ONLY the new alternative keyword phrase. Do not include quotation marks.`;
+        The user needs a DIFFERENT keyword phrase (max 4 words) for a Google Image Search.
+        This new query must be different from the previous ones.
+        Example 1: If previous was "Biden Speech", a good alternative is "Joe Biden podium".
+        Example 2: If previous was "NASA Artemis Launch", a good alternative is "SLS rocket".
+        OUTPUT ONLY the new alternative keyword phrase.`;
 
     try {
         const generationResult = await ai.models.generateContent({ model, contents: [{ role: 'user', parts: [{ text: prompt }] }] });
@@ -219,7 +221,7 @@ async function searchForRelevantImages(query, startIndex = 0) {
         if (!GOOGLE_SEARCH_CX || !GOOGLE_API_KEY) { throw new Error("Google Search CX or API Key missing."); }
         const apiStartIndex = startIndex + 1;
         const response = await customsearch.cse.list({ auth: GOOGLE_API_KEY, cx: GOOGLE_SEARCH_CX, q: query, searchType: 'image', num: 9, start: apiStartIndex, safe: 'high', imgType: 'photo', imgSize: 'medium' });
-        if (!response.data.items || response.data.items.length === 0) { if (startIndex === 0) { throw new Error('No images found.'); } else { console.log(`[Image Search] No more images found.`); return []; } }
+        if (!response.data.items || response.data.items.length === 0) { if (startIndex === 0) { console.log(`[Image Search] No images found for "${query}".`); return []; } else { console.log(`[Image Search] No more images found.`); return []; } }
         const imagesData = response.data.items.map(item => ({ imageUrl: item.link, contextUrl: item.image?.contextLink, query: query, width: item.image?.width, height: item.image?.height }));
         console.log(`[Image Search] Found ${imagesData.length} images.`);
         return imagesData;
@@ -254,8 +256,7 @@ async function findRelatedVideo(title, source) {
 }
 
 
-// --- *** UTILITY FUNCTION: GENERATE PREVIEW IMAGE (NEWS STYLE) *** ---
-// *** MODIFIED FUNCTION ***
+// --- UTILITY FUNCTION: GENERATE PREVIEW IMAGE (NEWS STYLE) ---
 async function generateSimplePreviewImage(imageUrl, overlayTextString) {
     console.log(`[Simple Preview] Starting preview generation.`);
     console.log(`[Simple Preview] Image URL: ${imageUrl}`);
