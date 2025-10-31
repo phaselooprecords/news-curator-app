@@ -1,4 +1,4 @@
-k// server.js (UPDATED with cluster-aware scheduler)
+// server.js (UPDATED with cluster-aware scheduler)
 
 // 1. Import modules
 const express = require('express');
