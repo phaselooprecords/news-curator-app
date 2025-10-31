@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE SETUP ---
 app.use(bodyParser.json());
+// This line is correct and serves 'fallback-thumbnail.png'
 app.use(express.static('public')); 
 
 // --- Basic Authentication Middleware ---
@@ -140,8 +141,7 @@ app.post('/api/find-video', async (req, res) => {
     }
 });
 
-// *** MODIFIED ENDPOINT ***
-// Simple Preview Image Generation
+// *** MODIFIED ENDPOINT (For streaming images) ***
 app.post('/api/generate-simple-preview', async (req, res) => {
     const { imageUrl, overlayText } = req.body; 
     if (!imageUrl || !overlayText) {
@@ -229,7 +229,7 @@ async function startApp() {
             aggregator.startScheduler();
             
             // ------------------
-            // --- FIX APPLIED ---
+            // --- FIX APPLIED (Boot-loop) ---
             // ------------------
             // Removed the initial fetch to prevent startup timeout
             // console.log("Staging initial news fetch in 10 seconds...");

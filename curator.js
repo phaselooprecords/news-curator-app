@@ -1,4 +1,4 @@
-// curator.js (UPDATED: News banner style overlay)
+// curator.js (UPDATED: Returns image buffer)
 
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');

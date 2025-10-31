@@ -229,7 +229,11 @@
                 console.log("Cleared loading message. Starting article loop...");
                 articles.forEach((article, index) => {
                     const articleElement = document.createElement('div'); articleElement.className = 'article'; articleElement.dataset.link = article.link;
-                    const imgElement = document.createElement('img'); imgElement.className = 'article-image'; imgElement.src = article.originalImageUrl || '/fallback-thumbnail.png'; imgElement.alt = 'Article thumbnail'; imgElement.onerror = function() { this.src='/fallback-thumbnail.png'; };
+                    const imgElement = document.createElement('img'); imgElement.className = 'article-image';
+                    // *** MODIFIED *** (Points to the correct path)
+                    imgElement.src = article.originalImageUrl || '/fallback-thumbnail.png'; 
+                    imgElement.alt = 'Article thumbnail'; 
+                    imgElement.onerror = function() { this.src='/fallback-thumbnail.png'; };
                     const contentElement = document.createElement('div'); contentElement.className = 'article-content'; contentElement.innerHTML = `<h2>${article.title}</h2><p>Source: ${article.source} | Published: ${new Date(article.pubDate).toLocaleDateString()}</p>`;
                     articleElement.appendChild(imgElement); articleElement.appendChild(contentElement);
                     articleElement.onclick = () => handleArticleTap(article);
@@ -513,7 +517,7 @@
         }
 
         // --- Call Simple Preview API ---
-        // *** MODIFIED FUNCTION ***
+        // *** MODIFIED FUNCTION (Handles blob response) ***
         async function startSimplePreviewPipeline(mediaUrl, contextUrl = null) {
              console.log(`startSimplePreviewPipeline called with URL: ${mediaUrl}, Context: ${contextUrl}`);
              const isVideo = currentVideoUrl && mediaUrl === currentVideoUrl; const isImageUrl = !isVideo;
@@ -625,7 +629,7 @@
         }
         
         // --- Share Button Logic ---
-        // *** MODIFIED FUNCTION ***
+        // *** MODIFIED FUNCTION (Handles blob URL) ***
         async function handleShare() {
             if (!simplePreviewImagePath && !currentVideoUrl) { alert("No image/video generated."); return; } if (!currentCuratedData) { alert("AI caption not ready."); return; } const shareTitle = (currentCuratedData.headline || "News Post").replace(/^\*\*|\*\*$/g, ''); const shareText = document.getElementById('caption-text-area').value; let shareData = { title: shareTitle, text: shareText, };
             if (navigator.share) { 
