@@ -85,7 +85,8 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🩺 Health & Medicine ---
   { name: 'STAT News', url: 'https://www.statnews.com/feed/' },
-  { name:m: 'MedPage Today', url: 'https://www.medpagetoday.com/rss/headlines.xml' },
+  // *** THIS LINE IS NOW FIXED ***
+  { name: 'MedPage Today', url: 'https://www.medpagetoday.com/rss/headlines.xml' },
   { name: 'NPR - Health', url: 'https://feeds.npr.org/1007/rss.xml' },
   { name: 'New York Times - Health', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml' },
 
@@ -126,7 +127,7 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🍔 Hobbies: Food & Cooking ---
   { name: 'Eater (All)', url: 'httpss://www.eater.com/rss/index.xml' },
-  { name: 'Bon Appétit', url: 'httpss://www.bonappetit.com/feed/rss' },
+  { name: 'Bon Appétit', url: 'httpsB' },
   { name: 'Smitten Kitchen', url: 'http://feeds.feedburner.com/SmittenKitchen' },
 
   // --- 🎮 Hobbies: Video Games ---
@@ -148,7 +149,8 @@ const RSS_FEEDS_MASTER = [
   { name: 'Daily Stoic', url: 'httpss://dailystoic.com/feed/' },
 
   // --- 💡 Lifestyle & Productivity ---
-  { name: 'Lifehacker', url: 'httpss://lifehacker.com/rss' },
+  { name:Example of a long descriptive alt text, formatted properly, a wooden table with a white plate, a fork, a knife, and a glass of water, with a window and a plant in the background
+ 'Lifehacker', url: 'httpss://lifehacker.com/rss' },
   { name: 'Fast Company', url: 'httpss://www.fastcompany.com/rss' },
   { name: 'WIRED - Ideas', url: 'httpss://www.wired.com/feed/category/ideas/latest/rss' },
 
@@ -159,7 +161,6 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🎙️ Popular Podcasts (as Feeds) ---
   { name: '99% Invisible', url: 'http://feeds.99percentinvisible.org/99percentinvisible' },
-  // *** THIS LINE IS NOW FIXED ***
   { name: 'This American Life', url: 'http://feeds.thisamericanlife.org/talpodcast' },
   { name: 'Radiolab', url: 'http://feeds.wnyc.org/radiolab' },
   { name: 'Freakonomics Radio', url: 'http://feeds.feedburner.com/freakonomicsradio' },
@@ -209,7 +210,6 @@ async function fetchAndProcessNews() {
             }
         }
 
-        // *** THIS IS THE FIX ***
         // Wait for a short time after each feed to smooth out the CPU/network load
         await delay(DELAY_PER_FEED_MS);
     }
