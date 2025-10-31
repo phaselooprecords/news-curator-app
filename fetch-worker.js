@@ -110,53 +110,52 @@ const RSS_FEEDS_MASTER = [
 
   // --- 🎨 Creative: Art & Photography ---
   { name: 'Colossal (Art)', url: 'http://feeds.feedburner.com/colossal' },
-  { name: 'Hyperallergic', url: 'httpss://hyperallergic.com/feed/' },
+  { name: 'Hyperallergic', url: 'https://hyperallergic.com/feed/' },
   { name: 'PetaPixel (Photography)', url: 'https://petapixel.com/feed/' },
-  { name: 'Booooooom', url: 'httpss://www.booooooom.com/feed/' },
+  { name: 'Booooooom', url: 'https://www.booooooom.com/feed/' },
 
   // --- 🏠 Creative: Design & Architecture ---
   { name: 'Dezeen', url: 'http://feeds.feedburner.com/dezeen' },
-  { name: 'designboom', url: 'httpss://www.designboom.com/feed/' },
-  { name: 'Swissmiss', url: 'httpss://www.swiss-miss.com/feed' },
-  { name: 'Curbed', url: 'httpss://www.curbed.com/rss/index.xml' },
+  { name: 'designboom', url: 'https://www.designboom.com/feed/' },
+  { name: 'Swissmiss', url: 'https://www.swiss-miss.com/feed' },
+  { name: 'Curbed', url: 'https://www.curbed.com/rss/index.xml' },
   
   // --- 👟 Creative: Fashion & Style ---
-  { name: 'Vogue', url: 'httpss://www.vogue.com/feed/rss' },
-  { name: 'Hypebeast', url: 'httpss://hypebeast.com/feed' },
+  { name: 'Vogue', url: 'https://www.vogue.com/feed/rss' },
+  { name: 'Hypebeast', url: 'https://hypebeast.com/feed' },
 
   // --- 🍔 Hobbies: Food & Cooking ---
-  { name: 'Eater (All)', url: 'httpss://www.eater.com/rss/index.xml' },
-  { name: 'Bon Appétit', url: 'httpss://www.bonappetit.com/feed/rss' },
+  { name: 'Eater (All)', url: 'https://www.eater.com/rss/index.xml' },
+  { name: 'Bon Appétit', url: 'https://www.bonappetit.com/feed/rss' },
   { name: 'Smitten Kitchen', url: 'http://feeds.feedburner.com/SmittenKitchen' },
 
   // --- 🎮 Hobbies: Video Games ---
-  { name: 'Kotaku', url: 'httpss://kotaku.com/rss' },
+  { name: 'Kotaku', url: 'https://kotaku.com/rss' },
   { name: 'IGN', url: 'http://feeds.ign.com/ign/all' },
-  { name: 'Game Rant', url: 'httpss://gamerant.com/feed/' },
-  { name: 'GameSpot - All News', url: 'httpss://www.gamespot.com/feeds/news/' },
-  { name: 'Polygon', url: 'httpss://www.polygon.com/rss/index.xml' },
+  { name: 'Game Rant', url: 'https://gamerant.com/feed/' },
+  { name: 'GameSpot - All News', url: 'https://www.gamespot.com/feeds/news/' },
+  { name: 'Polygon', url: 'https://www.polygon.com/rss/index.xml' },
 
   // --- ⚽ Hobbies: Sports ---
-  { name: 'ESPN', url: 'httpss://www.espn.com/espn/rss/news' },
+  { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news' },
   { name: 'BBC Sport', url: 'http://feeds.bbci.co.uk/sport/rss.xml' },
   { name: 'SB Nation', url: 'httpss://www.sbnation.com/rss/index.xml' },
 
   // --- 🚗 Hobbies: Automotive ---
-  { name: 'Jalopnik', url: 'httpss://jalopnik.com/rss' },
+  { name: 'Jalopnik', url: 'https://jalopnik.com/rss' },
 
   // --- 📚 Intellectual: History, Philosophy, Literature ---
-  { name: 'Daily Stoic', url: 'httpss://dailystoic.com/feed/' },
+  { name: 'Daily Stoic', url: 'https://dailystoic.com/feed/' },
 
   // --- 💡 Lifestyle & Productivity ---
-  // *** THIS SECTION IS NOW FIXED ***
-  { name: 'Lifehacker', url: 'httpss://lifehacker.com/rss' },
-  { name: 'Fast Company', url: 'httpss://www.fastcompany.com/rss' },
-  { name: 'WIRED - Ideas', url: 'httpss://www.wired.com/feed/category/ideas/latest/rss' },
+  { name: 'Lifehacker', url: 'https://lifehacker.com/rss' },
+  { name: 'Fast Company', url: 'https://www.fastcompany.com/rss' },
+  { name: 'WIRED - Ideas', url: 'httpsS://www.wired.com/feed/category/ideas/latest/rss' },
 
   // --- 🕵️ Investigative & Fact-Checking ---
   { name: 'ProPublica', url: 'http://feeds.propublica.org/propublica/main' },
-  { name: 'Snopes', url: 'httpss://www.snopes.com/feed/' },
-  { name: 'The Intercept', url: 'httpss://theintercept.com/feed/?lang=en' },
+  { name: 'Snopes', url: 'https://www.snopes.com/feed/' },
+  { name: 'The Intercept', url: 'https://theintercept.com/feed/?lang=en' },
 
   // --- 🎙️ Popular Podcasts (as Feeds) ---
   { name: '99% Invisible', url: 'http://feeds.99percentinvisible.org/99percentinvisible' },
@@ -176,7 +175,13 @@ async function fetchAndProcessNews() {
         feedCount++;
         console.log(`[Worker] Fetching feed ${feedCount}/${totalFeeds}: ${feed.name}`);
         try {
-            let rss = await parser.parseURL(feed.url);
+            // *** TEMPORARY FIX: Manually correct URL if it's bad ***
+            let feedUrl = feed.url;
+            if (feedUrl.startsWith('httpss://')) {
+                feedUrl = feedUrl.replace('httpss://', 'https://');
+            }
+
+            let rss = await parser.parseURL(feedUrl); // Use the corrected URL
             
             const processedItems = rss.items.map(item => {
                 // Find the original image URL
@@ -204,7 +209,9 @@ async function fetchAndProcessNews() {
                 !error.message.includes('Status code 429') &&
                 !error.message.includes('ENOTFOUND') &&
                 !error.message.includes('socket hang up') &&
-                !error.message.includes('Invalid character')) {
+                !error.message.includes('Invalid character') &&
+                !error.message.includes('Protocol "httpss:"') // No need to log this one anymore
+                ) {
                 console.error(`[Worker ERROR] Failed to fetch feed for ${feed.name}: ${error.message}`);
             }
         }
