@@ -80,6 +80,8 @@
             const contentArea = document.getElementById('link-list-content');
             try {
                 // This is the same API endpoint your admin panel uses
+                // It will now fetch from 'curator_links' because we
+                // updated the server's database.js file.
                 const response = await fetch('/api/links/get');
                 if (!response.ok) throw new Error('Failed to fetch links.');
                 
@@ -110,3 +112,4 @@
     </script>
 </body>
 </html>
+

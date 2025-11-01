@@ -153,6 +153,7 @@ app.post('/api/share', async (req, res) => {
 });
 
 // --- Public Link API Routes ---
+// These now use the db functions that point to 'curator_links'
 app.post('/api/links/add', adminAuth, async (req, res) => {
     console.log("--> Received request for /api/links/add");
     const { title, link } = req.body;
@@ -229,3 +230,4 @@ async function startApp() {
 
 // --- INITIATE SERVER START ---
 startApp();
+

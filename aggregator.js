@@ -55,3 +55,4 @@ module.exports = {
     runFetch: runFetchInWorker, // Export the worker-based function
     getNews: db.getAllArticles // This remains the same
 };
+
