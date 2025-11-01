@@ -1,11 +1,11 @@
-// database.js (Includes link functions)
+// database.js (UPDATED with deleteLink function)
 
 require('dotenv').config(); 
-const { MongoClient } = require('mongodb'); 
+const { MongoClient, ObjectId } = require('mongodb'); // <-- Added ObjectId
 
 // Get variables from .env file
 const uri = process.env.MONGO_URI; 
-const dbName = "newsCuratorDB"; // Using the News DB
+const dbName = "musiccuratorDB"; // Switched back to your DB name
 
 if (!uri) {
     throw new Error("MONGO_URI environment variable not set. Check your .env file.");
@@ -28,7 +28,7 @@ async function connectDB() {
     }
 }
 
-// --- CORE OPERATIONS ---
+// --- CORE OPERATIONS ('articles' collection) ---
 
 // Function to save an array of news articles to the 'articles' collection
 async function insertArticles(articles) {
@@ -64,11 +64,10 @@ async function getAllArticles() {
     return await collection.find({}).sort({ pubDate: -1 }).toArray();
 }
 
-// --- FUNCTIONS FOR "MY LINKS" ---
+// --- "LINKS" COLLECTION FUNCTIONS ---
 
 /**
  * Adds a new link to the 'links' collection.
- * Uses upsert to avoid duplicate links.
  */
 async function addLink(title, link) {
     if (!db) {
@@ -103,6 +102,29 @@ async function getAllLinks() {
     return await collection.find({}).sort({ createdAt: -1 }).toArray();
 }
 
+/**
+ * *** NEW FUNCTION ***
+ * Deletes a link from the 'links' collection by its ID.
+ */
+async function deleteLink(linkId) {
+    if (!db) {
+        throw new Error("Database not connected.");
+    }
+    const collection = db.collection('links');
+    try {
+        // MongoDB _id must be an ObjectId
+        const result = await collection.deleteOne({ _id: new ObjectId(linkId) });
+        console.log(`[DB] Deleted link, count: ${result.deletedCount}`);
+        return result;
+    } catch (error) {
+        console.error("[DB ERROR] Failed to delete link:", error.message);
+        if (error.message.includes("Argument passed in must be a string of 12 bytes")) {
+            console.error("Error: Invalid Link ID format.");
+            return { deletedCount: 0 }; // Return 0 if ID was invalid
+        }
+        throw error;
+    }
+}
 
 // --- EXPORTS ---
 module.exports = {
@@ -110,5 +132,6 @@ module.exports = {
     insertArticles,
     getAllArticles,
     addLink,
-    getAllLinks
+    getAllLinks,
+    deleteLink // <-- NEW EXPORT
 };

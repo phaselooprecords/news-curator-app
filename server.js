@@ -1,10 +1,10 @@
-// server.js (UPDATED: Removed cluster and initial fetch)
+// server.js (UPDATED with Admin Auth, new routes, and DELETE link API)
 
 // 1. Import modules
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
-const basicAuth = require('express-basic-auth'); 
+const basicAuth = require('express-basic-auth'); // For password
 const aggregator = require('./aggregator');
 const db = require('./database');
 const curator = require('./curator');
@@ -13,10 +13,9 @@ const curator = require('./curator');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
 // --- MIDDLEWARE SETUP ---
 app.use(bodyParser.json());
-// This line is correct and serves 'fallback-thumbnail.png'
+// This serves homepage.html, fallback-thumbnail.png etc.
 app.use(express.static('public')); 
 
 // --- Basic Authentication Middleware ---
@@ -34,8 +33,7 @@ const adminAuth = basicAuth({
 });
 
 // --- API ROUTES (Endpoints) ---
-
-// Fetch all stored news articles
+// (All your API routes like /api/news, /api/generate-text, etc. remain unchanged)
 app.get('/api/news', async (req, res) => {
     console.log("--> Received request for /api/news");
     try {
@@ -47,8 +45,6 @@ app.get('/api/news', async (req, res) => {
         res.status(500).json({ error: 'Failed to retrieve articles.' });
     }
 });
-
-// Endpoint 1: Generate AI Text
 app.post('/api/generate-text', async (req, res) => {
     const article = req.body;
     if (!article || !article.title) {
@@ -62,12 +58,10 @@ app.post('/api/generate-text', async (req, res) => {
         res.status(500).json({ error: 'Text generation failed.' });
     }
 });
-
-// Endpoint 2: Extract Keywords
 app.post('/api/extract-keywords', async (req, res) => {
     const { headline, description } = req.body;
     if (!headline || !description) {
-        return res.status(400).json({ error: 'Missing headline or description.' });
+        return res.status(400).json({ error: 'Missing headline or description for keyword extraction.' });
     }
     try {
         const keywords = await curator.extractSearchKeywords(headline, description);
@@ -77,12 +71,10 @@ app.post('/api/extract-keywords', async (req, res) => {
         res.status(500).json({ error: 'Keyword extraction failed.' });
     }
 });
-
-// Endpoint 3: Get Alternative Keywords
 app.post('/api/get-alternative-keywords', async (req, res) => {
     const { headline, description, previousKeywords } = req.body;
     if (!headline || !description) {
-        return res.status(400).json({ error: 'Missing headline or description.' });
+        return res.status(400).json({ error: 'Missing headline or description for alternative keyword extraction.' });
     }
     const prevKeywordsArray = Array.isArray(previousKeywords) ? previousKeywords : [];
     try {
@@ -93,13 +85,10 @@ app.post('/api/get-alternative-keywords', async (req, res) => {
         res.status(500).json({ error: 'Alternative keyword extraction failed.' });
     }
 });
-
-
-// Endpoint 4: Search for Images
 app.post('/api/search-images', async (req, res) => {
     const { query, startIndex } = req.body;
     if (!query) {
-        return res.status(400).json({ error: 'Missing query.' });
+        return res.status(400).json({ error: 'Missing query for image search.' });
     }
     const index = parseInt(startIndex, 10) || 0;
     try {
@@ -110,12 +99,10 @@ app.post('/api/search-images', async (req, res) => {
         res.status(500).json({ error: 'Image search failed.' });
     }
 });
-
-// Endpoint 5: Find Related Articles
 app.post('/api/find-related-articles', async (req, res) => {
     const { title, source } = req.body;
     if (!title || !source) {
-        return res.status(400).json({ error: 'Missing title or source.' });
+        return res.status(400).json({ error: 'Missing title or source for related search.' });
     }
     try {
         const relatedArticles = await curator.findRelatedWebArticles(title, source);
@@ -125,12 +112,10 @@ app.post('/api/find-related-articles', async (req, res) => {
         res.status(500).json({ error: 'Related article search failed.' });
     }
 });
-
-// Endpoint 6: Find Video
 app.post('/api/find-video', async (req, res) => {
     const { title, source } = req.body;
     if (!title || !source) {
-        return res.status(400).json({ error: 'Missing title or source.' });
+        return res.status(400).json({ error: 'Missing title or source for video search.' });
     }
     try {
         const videoUrl = await curator.findRelatedVideo(title, source);
@@ -140,40 +125,35 @@ app.post('/api/find-video', async (req, res) => {
         res.status(500).json({ error: 'Video search failed.' });
     }
 });
-
-// *** MODIFIED ENDPOINT (For streaming images) ***
 app.post('/api/generate-simple-preview', async (req, res) => {
-    const { imageUrl, overlayText } = req.body; 
+    console.log("--- /api/generate-simple-preview: Endpoint START ---");
+    const { imageUrl, overlayText } = req.body;
     if (!imageUrl || !overlayText) {
+        console.log("[/api/generate-simple-preview] Validation Failed: Missing data.");
         return res.status(400).json({ error: 'Missing data for preview.' });
     }
     try {
-        // This function now returns a buffer or null
         const imageBuffer = await curator.generateSimplePreviewImage(imageUrl, overlayText); 
-        
         if (imageBuffer) {
-            // Set the correct content type and send the buffer directly
+            console.log("[/api/generate-simple-preview] Success, streaming image buffer.");
             res.set('Content-Type', 'image/png');
             res.send(imageBuffer);
         } else {
-            // Send a 500 error if the buffer is null (generation failed)
+            console.log("[/api/generate-simple-preview] Curator returned null buffer.");
             res.status(500).json({ error: 'Preview generation failed on server.' });
         }
     } catch (error) {
-        console.error("!!! ERROR in /api/generate-simple-preview:", error);
+        console.error("--- /api/generate-simple-preview: CATCH BLOCK ERROR ---", error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 });
-
-// Social Media Sharing (MOCK-UP)
 app.post('/api/share', async (req, res) => {
-    const { imagePath, caption, platform } = req.body;
-    console.log(`\n*** MOCK SHARE REQUEST to ${platform} ***\n`);
-    res.json({ success: true, message: `Successfully simulated sharing to ${platform}!` });
+    console.log("--> Received request for /api/share");
+    res.json({ success: true, message: `Successfully simulated sharing!` });
 });
 
-// Add a new link (from admin panel)
-app.post('/api/links/add', async (req, res) => {
+// --- Public Link API Routes ---
+app.post('/api/links/add', adminAuth, async (req, res) => {
     console.log("--> Received request for /api/links/add");
     const { title, link } = req.body;
     if (!title || !link) {
@@ -188,7 +168,6 @@ app.post('/api/links/add', async (req, res) => {
     }
 });
 
-// Get all links (for public page)
 app.get('/api/links/get', async (req, res) => {
     console.log("--> Received request for /api/links/get");
     try {
@@ -200,14 +179,31 @@ app.get('/api/links/get', async (req, res) => {
     }
 });
 
-// --- PAGE ROUTING ---
-
-// Public root: Serves the public "link in bio" page
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'links.html'));
+// *** NEW: Delete Link Endpoint ***
+app.delete('/api/links/delete/:id', adminAuth, async (req, res) => {
+    const linkId = req.params.id;
+    console.log(`--> Received request for /api/links/delete/${linkId}`);
+    try {
+        const result = await db.deleteLink(linkId);
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ success: false, error: 'Link not found.' });
+        }
+        res.json({ success: true, message: 'Link deleted successfully.' });
+    } catch (error) {
+        console.error("!!! ERROR in /api/links/delete:", error);
+        res.status(500).json({ success: false, error: 'Failed to delete link.' });
+    }
 });
 
-// Admin panel: Serves the private curator app, protected by password
+
+// --- PAGE ROUTING ---
+
+// Public root: Serves the new public homepage
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'homepage.html'));
+});
+
+// Admin panel: Serves index.html from the 'admin' folder, protected by password
 app.get('/admin', adminAuth, (req, res) => {
     if (!adminPass) {
         return res.status(500).send("Server is not configured with an ADMIN_PASSWORD. Access denied.");
@@ -215,32 +211,21 @@ app.get('/admin', adminAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
-// --- SERVER START FUNCTION ---
-// This function is now run by a single process
-async function startApp() {
-    try {
-        await db.connectDB();
-        console.log("Database connected successfully.");
 
-        app.listen(PORT,'0.0.0.0', () => {
-            console.log(`Server running at http://localhost:${PORT}`);
-            
-            // Start the recurring schedule
-            aggregator.startScheduler();
-            
-            // ------------------
-            // --- FIX APPLIED (Boot-loop) ---
-            // ------------------
-            // Removed the initial fetch to prevent startup timeout
-            // console.log("Staging initial news fetch in 10 seconds...");
-            // setTimeout(aggregator.runFetch, 10000); // <-- REMOVED
-        });
-    } catch (dbError) {
-        console.error("Server failed to start:", dbError);
-        process.exit(1);
-    }
+// --- SERVER START FUNCTION ---
+async function startApp() {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running at http://localhost:${PORT} and listening for connections.`);
+        (async () => {
+            try {
+                await db.connectDB();
+                aggregator.startScheduler();
+            } catch (dbError) {
+                console.error("!!! CRITICAL: Server is LIVE but DB connection FAILED:", dbError);
+            }
+        })();
+    });
 }
 
 // --- INITIATE SERVER START ---
-// No more cluster logic, just run the app
 startApp();

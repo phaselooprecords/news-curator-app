@@ -55,7 +55,6 @@
         button#download-preview-btn { background-color: #17a2b8; margin-right: 10px; }
         button.back-button { background-color: #6c757d; margin-left: 10px;}
         button#share-preview-btn { background-color: #007bff; margin-right: 10px;}
-        /* --- NEW BUTTON STYLE --- */
         button#share-link-btn { background-color: #28a745; margin-right: 10px; }
         button#share-link-btn:hover { background-color: #218838; }
         button#copy-caption-btn { background-color: #6f42c1; }
@@ -65,14 +64,80 @@
         #ai-caption-display h3 { margin-top: 0; color: #FF6B6B; font-size: 1.4em; border-bottom: none; text-align: left;}
         #ai-caption-display #caption-text-area { width: 100%; height: 120px; background-color: #222; color: #f0f0f0; border: 1px solid #444; padding: 10px; box-sizing: border-box; resize: vertical; font-family: Arial, sans-serif; font-size: 0.9em; margin-bottom: 10px; white-space: pre-wrap; /* Ensure line breaks show */}
         #simple-preview-video-player { width: 100%; max-width: 600px; aspect-ratio: 16 / 9; margin: auto; display: none; margin-bottom: 20px; border: 1px solid #444;}
+    
+        /* --- NEW LINK MANAGEMENT STYLES --- */
+        #view-toggle-container {
+            text-align: right;
+            margin-bottom: 15px;
+        }
+        #view-toggle-btn {
+            background-color: #343a40;
+            border-color: #343a40;
+        }
+        .add-link-form {
+            background-color: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .add-link-form input[type="text"] {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #222;
+            color: #f0f0f0;
+            font-size: 1em;
+        }
+        #add-link-btn {
+            background-color: #28a745;
+        }
+        #current-links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .link-manage-item {
+            background-color: #222;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #444;
+        }
+        .link-manage-item p {
+            margin: 0;
+            font-size: 1.1em;
+            word-break: break-all;
+        }
+        .delete-link-btn {
+            background-color: #dc3545;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            flex-shrink: 0;
+            margin-left: 15px;
+        }
+        .delete-link-btn:hover {
+            background-color: #c82333;
+        }
+        /* --- END OF STYLES --- */
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>NEWS FEED CURATOR</h1> 
-        <p>Tap a headline to create the social media post.</p>
 
-        <div id="news-list"> Loading news... </div>
+        <div id="view-toggle-container">
+            <button id="view-toggle-btn">Manage Links</button>
+        </div>
+
+        <div id="news-feed-view">
+            <h1>NEWS FEED CURATOR</h1> 
+            <p>Tap a headline to create the social media post.</p>
+            <div id="news-list"> Loading news... </div>
+        </div>
 
         <div id="selection-view" class="hidden">
              <h2>Select Your Post Visual</h2>
@@ -93,7 +158,6 @@
                  <p>Generating AI text to determine search query...</p>
              </div>
              <div id="image-loader-sentinel" style="height: 50px;"></div>
-
              <h3>Other Sources:</h3>
              <div id="related-articles-list">
                  <p>Finding related articles...</p>
@@ -104,22 +168,36 @@
             <h2>Quick Preview</h2>
             <img id="simple-preview-image" src="" alt="Simple Preview" />
             <div id="simple-preview-video-player" style="display: none;"></div>
-
             <div id="video-display-area" class="hidden">
                 <h3>Related Video:</h3>
                 <div id="video-player-container"></div>
             </div>
-
             <div id="ai-caption-display">
                 <h3>AI Caption:</h3>
                 <textarea id="caption-text-area" readonly></textarea>
                 <button id="copy-caption-btn">Copy Caption</button>
             </div>
-
             <button id="share-preview-btn">Share Post</button>
             <button id="share-link-btn">Share Post & Link in Bio</button>
             <button id="download-preview-btn">Download Image</button>
             <button onclick="setView('select')" class="back-button">Back to Selection</button>
+        </div>
+        
+        <div id="link-management-view" class="hidden">
+            <h2>Link Management</h2>
+            <p>Add or remove links shown on your public homepage.</p>
+            
+            <div class="add-link-form">
+                <h3>Add New Link</h3>
+                <input type="text" id="new-link-title" placeholder="Display Title">
+                <input type="text" id="new-link-url" placeholder="Full URL (e.g., https://...)">
+                <button id="add-link-btn">Add New Link</button>
+            </div>
+
+            <h3>Current Links</h3>
+            <div id="current-links-list">
+                <p>Loading current links...</p>
+            </div>
         </div>
 
     </div>
@@ -128,8 +206,8 @@
         // --- Global State Variables ---
         let currentArticleData = null;
         let currentCuratedData = null;
-        let simplePreviewImagePath = null; // This will now hold an Object URL
-        let currentObjectUrl = null; // Helper to manage Object URL memory
+        let simplePreviewImagePath = null; 
+        let currentObjectUrl = null; 
         let currentVideoUrl = null;
         const IMAGES_PER_PAGE = 9;
         let currentSearchKeywords = [];
@@ -142,24 +220,33 @@
         // --- Event Listener for DOM Load ---
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM fully loaded and parsed. Calling fetchNews()...");
-            fetchNews();
+            fetchNews(); // Load news feed on start
             initializeInfiniteScroll(); 
 
+            // Preview buttons
             document.getElementById('download-preview-btn').onclick = () => handleDownload();
             document.getElementById('share-preview-btn').onclick = () => handleShare();
             document.getElementById('copy-caption-btn').onclick = () => handleCopyCaption();
-            
-            // --- *** NEW BUTTON LISTENER *** ---
             document.getElementById('share-link-btn').onclick = () => handleShareAndLink();
+            
+            // --- NEW: Link management listeners ---
+            document.getElementById('view-toggle-btn').onclick = () => toggleView();
+            document.getElementById('add-link-btn').onclick = () => handleAddManualLink();
+            // Use event delegation for delete buttons
+            document.getElementById('current-links-list').addEventListener('click', (event) => {
+                if (event.target && event.target.classList.contains('delete-link-btn')) {
+                    const linkId = event.target.dataset.id;
+                    handleDeleteLink(linkId);
+                }
+            });
         });
 
         // --- Infinite Scroll Setup ---
         function initializeInfiniteScroll() {
+            // ... (This function is unchanged) ...
             const sentinel = document.getElementById('image-loader-sentinel');
             if (!sentinel) return;
-
             const options = { root: null, rootMargin: '0px', threshold: 0.1 };
-
             imageObserver = new IntersectionObserver((entries) => {
                 const entry = entries[0];
                 if (entry.isIntersecting && !isFetchingImages) {
@@ -167,62 +254,179 @@
                     loadMoreImages();
                 }
             }, options);
-
             imageObserver.observe(sentinel);
         }
 
         // --- Logic for loading more images ---
         function loadMoreImages() {
+            // ... (This function is unchanged) ...
             if (isFetchingImages || currentSearchKeywords.length === 0) return;
             isFetchingImages = true;
-            
             currentImageStartIndex += IMAGES_PER_PAGE;
             const currentKeyword = currentSearchKeywords[currentKeywordIndex];
             console.log(`[loadMoreImages] Loading next images for "${currentKeyword}", starting at index ${currentImageStartIndex}`);
             fetchImages(currentKeyword, currentImageStartIndex);
         }
 
-        // --- UI View Handler ---
+        // --- UI View Handler (UPDATED) ---
         function setView(viewId) {
-            console.log(`setView called with ID: ${viewId}`);
-            const newsList = document.getElementById('news-list');
-            const selectionView = document.getElementById('selection-view');
-            const simplePreviewView = document.getElementById('simple-preview-view');
-            if (!newsList || !selectionView || !simplePreviewView) {
-                console.error("setView Error: One or more view elements not found!"); return;
+            // --- Hides all main views ---
+            document.getElementById('news-feed-view').classList.add('hidden');
+            document.getElementById('selection-view').classList.add('hidden');
+            document.getElementById('simple-preview-view').classList.add('hidden');
+            document.getElementById('link-management-view').classList.add('hidden');
+
+            const toggleBtn = document.getElementById('view-toggle-btn');
+            
+            if (viewId === 'list') { 
+                document.getElementById('news-feed-view').classList.remove('hidden');
+                toggleBtn.textContent = "Manage Links";
+                console.log("setView: Showing 'news-feed-view'.");
             }
-            console.log("setView: Found all view elements.");
-            newsList.classList.add('hidden'); selectionView.classList.add('hidden'); simplePreviewView.classList.add('hidden');
-            console.log("setView: Added 'hidden' to all views.");
-            if (viewId === 'list') { newsList.classList.remove('hidden'); console.log("setView: Showing 'news-list'."); }
-            else if (viewId === 'select') { selectionView.classList.remove('hidden'); console.log("setView: Showing 'selection-view'."); }
+            else if (viewId === 'select') { 
+                document.getElementById('selection-view').classList.remove('hidden');
+                console.log("setView: Showing 'selection-view'.");
+                toggleBtn.textContent = "News Feed"; // Button text to go back
+            }
             else if (viewId === 'simple-preview') {
-                simplePreviewView.classList.remove('hidden'); console.log("setView: Showing 'simple-preview-view'.");
+                document.getElementById('simple-preview-view').classList.remove('hidden');
+                console.log("setView: Showing 'simple-preview-view'.");
                 populateCaptionDisplay();
+                // ... (rest of the logic is unchanged) ...
                 const downloadBtn = document.getElementById('download-preview-btn');
                 const imgPreview = document.getElementById('simple-preview-image');
                 const videoPreview = document.getElementById('simple-preview-video-player');
                 if (currentVideoUrl) { 
                     imgPreview.style.display = 'none'; 
                     videoPreview.style.display = 'block'; 
-                    document.getElementById('video-display-area').classList.remove('hidden'); // Show video section
+                    document.getElementById('video-display-area').classList.remove('hidden');
                     downloadBtn.textContent = 'Download/Open Video'; 
                 } else { 
                     imgPreview.style.display = 'block'; 
                     videoPreview.style.display = 'none'; 
-                    document.getElementById('video-display-area').classList.add('hidden'); // Hide video section
+                    document.getElementById('video-display-area').classList.add('hidden');
                     downloadBtn.textContent = 'Download Image'; 
                 }
             }
+            // --- NEW: Link management view ---
+            else if (viewId === 'link-management') {
+                document.getElementById('link-management-view').classList.remove('hidden');
+                toggleBtn.textContent = "Back to News Feed";
+                console.log("setView: Showing 'link-management-view'.");
+                fetchAndRenderLinks(); // Load the links when switching to this view
+            }
         }
+
+        // --- NEW: View Toggle Function ---
+        function toggleView() {
+            const linkView = document.getElementById('link-management-view');
+            if (linkView.classList.contains('hidden')) {
+                // We are on the news feed, switch to link management
+                setView('link-management');
+            } else {
+                // We are on link management, switch to news feed
+                setView('list');
+            }
+        }
+        
+        // --- NEW: Fetch and Render Links for Management ---
+        async function fetchAndRenderLinks() {
+            const listElement = document.getElementById('current-links-list');
+            listElement.innerHTML = '<p>Loading current links...</p>';
+            try {
+                const response = await fetch('/api/links/get');
+                if (!response.ok) throw new Error('Failed to fetch links.');
+                
+                const links = await response.json();
+                
+                if (!links || links.length === 0) {
+                    listElement.innerHTML = '<p>No links have been added yet.</p>';
+                    return;
+                }
+
+                listElement.innerHTML = ''; // Clear list
+                links.forEach(link => {
+                    const item = document.createElement('div');
+                    item.className = 'link-manage-item';
+                    item.innerHTML = `
+                        <p>${link.title}</p>
+                        <button class="delete-link-btn" data-id="${link._id}">Delete</button>
+                    `;
+                    listElement.appendChild(item);
+                });
+            } catch (error) {
+                console.error("Error fetching links:", error);
+                listElement.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        // --- NEW: Handle Manual Link Add ---
+        async function handleAddManualLink() {
+            const titleInput = document.getElementById('new-link-title');
+            const urlInput = document.getElementById('new-link-url');
+            
+            const title = titleInput.value.trim();
+            const link = urlInput.value.trim();
+
+            if (!title || !link) {
+                alert("Please enter both a Title and a URL.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/links/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, link })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to add link.');
+                }
+                
+                alert("Link added successfully!");
+                titleInput.value = '';
+                urlInput.value = '';
+                fetchAndRenderLinks(); // Refresh the list
+            } catch (error) {
+                console.error("Error adding link:", error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        // --- NEW: Handle Link Deletion ---
+        async function handleDeleteLink(linkId) {
+            if (!confirm("Are you sure you want to delete this link?")) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/links/delete/${linkId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to delete link.');
+                }
+
+                alert("Link deleted successfully.");
+                fetchAndRenderLinks(); // Refresh the list
+            } catch (error) {
+                console.error("Error deleting link:", error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+
 
         // --- Fetch Initial News Feed ---
         async function fetchNews() {
+            // ... (This function is unchanged) ...
             console.log("fetchNews function STARTED.");
             const newsListElement = document.getElementById('news-list');
             if (!newsListElement) { console.error("CRITICAL ERROR: news-list element NOT FOUND!"); alert("Page structure error."); return; }
             newsListElement.innerHTML = 'Loading news...';
-            console.log("Set 'Loading news...' text.");
             try {
                 console.log("Inside try block, BEFORE fetch('/api/news')");
                 const response = await fetch('/api/news');
@@ -251,14 +455,12 @@
 
         // --- Handle Article Selection ---
         async function handleArticleTap(article) {
+            // ... (This function is unchanged) ...
             console.log("handleArticleTap called for:", article.title);
-
-            // Revoke old object URL to prevent memory leaks
             if (currentObjectUrl) {
                 URL.revokeObjectURL(currentObjectUrl);
                 currentObjectUrl = null;
             }
-
             currentArticleData = article; currentCuratedData = null; currentVideoUrl = null; simplePreviewImagePath = null;
             currentSearchKeywords = []; currentKeywordIndex = 0; currentImageStartIndex = 0; currentImageContextUrl = null;
             isFetchingImages = false; 
@@ -274,12 +476,13 @@
             const originalLinkEl = document.getElementById('original-article-link'); originalLinkEl.href = article.link; originalLinkEl.textContent = `View Original Article on ${article.source}`;
             fetchAiText(article);
             fetchRelatedArticles(article.title, article.source);
-            fetchVideo(article.title, article.source, article.videoUrl); // Pass potential RSS video URL
+            fetchVideo(article.title, article.source, article.videoUrl);
             if (article.originalImageUrl) { const originalImgEl = document.getElementById('original-image'); const originalImgContainer = document.getElementById('original-image-container'); originalImgEl.src = article.originalImageUrl; originalImgEl.onclick = () => startSimplePreviewPipeline(article.originalImageUrl, article.link); originalImgContainer.classList.remove('hidden'); }
         }
 
         // --- Fetch AI Text & Trigger Keyword Extraction ---
         async function fetchAiText(article) {
+            // ... (This function is unchanged) ...
             console.log("fetchAiText function STARTED.");
             const previewHeadlineEl=document.getElementById('preview-headline'); const previewDescriptionEl=document.getElementById('preview-description'); const previewCaptionEl=document.getElementById('preview-caption-text'); const imageSelectionArea=document.getElementById('image-selection-area');
             if(!previewHeadlineEl||!previewDescriptionEl||!previewCaptionEl||!imageSelectionArea){console.error("fetchAiText Error: Preview elements not found!");return;}
@@ -296,13 +499,10 @@
                 console.log("fetchAiText: Response OK. Parsing JSON...");
                 currentCuratedData=await response.json(); 
                 console.log("fetchAiText: Successfully parsed AI text response:",currentCuratedData);
-                
                 previewHeadlineEl.innerText = currentCuratedData.headline || "AI Failed headline."; 
                 previewDescriptionEl.innerText = currentCuratedData.description || "No description."; 
                 previewCaptionEl.innerText = (currentCuratedData.caption || "No caption.") + `\n\nNews Source: ${currentCuratedData.originalSource||'Unknown'}`; 
-                
                 console.log("fetchAiText: Populated AI text to UI.");
-                
                 if(currentCuratedData.headline && currentCuratedData.headline !== "AI Failed"){
                     console.log("fetchAiText: Calling fetchPrimaryKeywords...");
                     fetchPrimaryKeywordsAndStartImageSearch(currentCuratedData.headline, currentCuratedData.description);
@@ -313,22 +513,20 @@
             }catch(error){console.error('!!! CATCH ERROR inside fetchAiText:',error);previewHeadlineEl.innerText="Error Generating AI Text";previewDescriptionEl.innerText="Please try another article or check server logs.";previewCaptionEl.innerText="";imageSelectionArea.innerHTML="<p>Error generating AI text.</p>";}
         }
 
-        // --- Fetch Primary Keywords & Start Image Search (*** UPDATED FALLBACK LOGIC ***) ---
+        // --- Fetch Primary Keywords & Start Image Search ---
         async function fetchPrimaryKeywordsAndStartImageSearch(headline, description) {
+            // ... (This function is unchanged) ...
             document.getElementById('image-selection-area').innerHTML = '<p>Extracting primary keywords...</p>';
             try {
                 console.log("fetchPrimaryKeywords: Sending request to /api/extract-keywords");
                 const response = await fetch('/api/extract-keywords', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ headline, description }) });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const data = await response.json();
-                let primaryKeyword = data.keywords; // This is the result from curator.js
-
-                // *** THIS IS THE CRITICAL FALLBACK LOGIC ***
+                let primaryKeyword = data.keywords;
                 if (!primaryKeyword) { 
                     console.warn("[Keywords] Primary extraction failed, falling back to article title."); 
-                    primaryKeyword = currentArticleData.title; // Fallback to original article title
+                    primaryKeyword = currentArticleData.title; 
                 }
-                
                 console.log(`[Keywords] Received primary: "${primaryKeyword}", starting image search.`);
                 currentSearchKeywords = [primaryKeyword]; 
                 currentKeywordIndex = 0; 
@@ -337,7 +535,7 @@
             } catch (error) { 
                 console.error("Error fetching primary keywords:", error); 
                 console.warn("[Keywords] Fetch failed, falling back to article title."); 
-                let fallbackKeyword = currentArticleData.title; // Fallback to original article title
+                let fallbackKeyword = currentArticleData.title; 
                 currentSearchKeywords = [fallbackKeyword]; 
                 currentKeywordIndex = 0; 
                 currentImageStartIndex = 0; 
@@ -348,6 +546,7 @@
 
         // --- Fetch Alternative Keywords ---
         async function fetchAlternativeKeywords() {
+            // ... (This function is unchanged) ...
             isFetchingImages = true; 
             const loader = document.getElementById('image-loader-sentinel');
             if (!currentCuratedData) { alert("Cannot get alternative keywords."); isFetchingImages = false; return; }
@@ -363,32 +562,31 @@
                     currentSearchKeywords.push(newKeyword); 
                     currentKeywordIndex++; 
                     currentImageStartIndex = 0; 
-                    fetchImages(newKeyword, 0); // fetchImages will reset isFetchingImages
+                    fetchImages(newKeyword, 0); 
                 }
                 else { 
                     console.warn("[AltKeywords] No suitable alternative found."); 
                     loader.innerHTML = '<p>No alternative keywords found. No more images to load.</p>';
-                    isFetchingImages = true; // Stop infinite scroll
+                    isFetchingImages = true; 
                 }
             } catch (error) { 
                 console.error("Error fetching alternative keywords:", error); 
                 loader.innerHTML = '<p>Failed to get alternative keywords.</p>';
-                isFetchingImages = true; // Stop infinite scroll
+                isFetchingImages = true; 
             }
         }
 
-	    // --- Fetch Images (UPDATED for Infinite Scroll) ---
+	    // --- Fetch Images ---
         async function fetchImages(query, startIndex) {
+            // ... (This function is unchanged) ...
             isFetchingImages = true; 
             const area = document.getElementById('image-selection-area');
             const loader = document.getElementById('image-loader-sentinel');
-
             if (startIndex === 0) {
                 area.innerHTML = `<p>Searching images: "${query}"...</p>`;
             } else {
                 loader.innerHTML = '<p>Loading more images...</p>';
             }
-
             try {
                 console.log(`fetchImages: Sending request for "${query}", start index ${startIndex}`);
                 const response = await fetch('/api/search-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query, startIndex: startIndex }) });
@@ -396,10 +594,8 @@
                 const data = await response.json();
                 const imagesData = data.images || [];
                 console.log(`fetchImages: Received ${imagesData.length} images.`);
-                
                 if (startIndex === 0) area.innerHTML = ''; 
                 loader.innerHTML = ''; 
-
                 if (imagesData.length === 0) {
                     if (startIndex === 0) {
                         area.innerHTML = `<p>No images found for "${query}".</p>`;
@@ -420,23 +616,23 @@
                          area.appendChild(container);
                      });
                     console.log("fetchImages: Finished rendering images.");
-                    isFetchingImages = false; // Allow next fetch
+                    isFetchingImages = false; 
                  }
             } catch (error) { 
                 console.error('Error fetching images:', error); 
                 if (startIndex === 0) area.innerHTML = `<p>Image search failed for "${query}".</p>`;
                 loader.innerHTML = '<p>Image search failed.</p>';
-                isFetchingImages = false; // Allow retry on scroll
+                isFetchingImages = false; 
             }
         }
 
         // --- Fetch Related Articles ---
         async function fetchRelatedArticles(title, source) {
+            // ... (This function is unchanged) ...
             const list = document.getElementById('related-articles-list');
             if (!list) { console.error("fetchRelatedArticles Error: List element not found!"); return; }
             list.innerHTML = "<p>Finding related articles...</p>";
             console.log(`fetchRelatedArticles: Searching for articles related to "${title}" from "${source}"`);
-
             try {
                 const response = await fetch('/api/find-related-articles', {
                     method: 'POST',
@@ -444,14 +640,10 @@
                     body: JSON.stringify({ title: title, source: source })
                 });
                 console.log(`fetchRelatedArticles: Response Status: ${response.status}`);
-
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
                 const data = await response.json();
                 console.log("fetchRelatedArticles: Received data:", data);
-
                 const relatedArticles = data.relatedArticles || [];
-
                 list.innerHTML = '';
                 if (relatedArticles.length === 0) {
                     list.innerHTML = "<p>No other sources found.</p>";
@@ -459,17 +651,14 @@
                     return;
                 }
                 console.log(`fetchRelatedArticles: Rendering ${relatedArticles.length} articles.`);
-
                 relatedArticles.forEach(article => {
                     if (currentArticleData && article.link === currentArticleData.link) return;
-
                     const el = document.createElement('div');
                     el.className = 'related-article';
                     el.innerHTML = `<a href="${article.link}" target="_blank" rel="noopener noreferrer">${article.title}</a><p>${article.source}</p>`;
                     list.appendChild(el);
                 });
                 console.log("fetchRelatedArticles: Finished rendering.");
-
             } catch (error) {
                 console.error('!!! CATCH ERROR fetching related articles:', error);
                 list.innerHTML = "<p style='color: red;'>Related article search failed.</p>";
@@ -478,6 +667,7 @@
 
         // --- Fetch Video ---
         async function fetchVideo(title, source, rssVideoUrl) {
+            // ... (This function is unchanged) ...
             let videoUrlToDisplay = rssVideoUrl;
             if (!videoUrlToDisplay) {
                 console.log("[Video] No video in RSS, searching online...");
@@ -492,18 +682,18 @@
                     console.log("[Video] Online search result:", videoUrlToDisplay);
                 } catch (error) { console.error('Error fetching related video:', error); videoUrlToDisplay = null; }
             } else { console.log("[Video] Using video URL from RSS:", videoUrlToDisplay); }
-
             if (videoUrlToDisplay) {
                 currentVideoUrl = videoUrlToDisplay;
                 displayVideo(videoUrlToDisplay, 'video-player-container');
             } else {
                 console.log("[Video] No video found from RSS or search.");
-                currentVideoUrl = null; // Ensure it's null if not found
+                currentVideoUrl = null; 
             }
         }
 
         // --- Display Video ---
         function displayVideo(videoUrl, containerId) {
+            // ... (This function is unchanged) ...
              let videoElement = null;
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -528,11 +718,9 @@
                   container.innerHTML = `<p>Video found: <a href="${videoUrl}" target="_blank" rel="noopener noreferrer">${videoUrl}</a> (Cannot embed player)</p>`;
               }
             if (videoElement) { container.appendChild(videoElement); }
-            
-            // Only unhide if we are in the simple preview view
              if (containerId === 'video-player-container') {
                 const simplePreview = document.getElementById('simple-preview-view');
-                if(!simplePreview.classList.contains('hidden')) { // Only show if preview view is active
+                if(!simplePreview.classList.contains('hidden')) { 
                     document.getElementById('video-display-area').classList.remove('hidden');
                 }
             }
@@ -540,20 +728,17 @@
 
         // --- Call Simple Preview API ---
         async function startSimplePreviewPipeline(mediaUrl, contextUrl = null) {
+            // ... (This function is unchanged) ...
              console.log(`startSimplePreviewPipeline called with URL: ${mediaUrl}, Context: ${contextUrl}`);
              const isVideo = currentVideoUrl && mediaUrl === currentVideoUrl; const isImageUrl = !isVideo;
              console.log(`startSimplePreviewPipeline: Is Video? ${isVideo}, Is Image? ${isImageUrl}`);
-             
              currentVideoUrl = isVideo ? mediaUrl : null; 
              simplePreviewImagePath = null; 
              currentImageContextUrl = isImageUrl ? contextUrl : null;
-             
-            // Revoke old object URL if it exists
-            if (currentObjectUrl) {
+             if (currentObjectUrl) {
                 URL.revokeObjectURL(currentObjectUrl);
                 currentObjectUrl = null;
             }
-
              try {
                   if (isImageUrl) {
                       if (!currentCuratedData || !currentCuratedData.caption) { 
@@ -562,11 +747,9 @@
                        }
                       alert("Generating preview image...");
                       console.log("startSimplePreviewPipeline: Proceeding with image generation.");
-                      
                       const socialCaption = currentCuratedData.caption;
                       const socialHeadline = socialCaption.split('\n\n')[0].trim(); 
                       console.log(`startSimplePreviewPipeline: Extracted social headline: "${socialHeadline}"`);
-                      
                       console.log("startSimplePreviewPipeline: Sending request to /api/generate-simple-preview");
                       const response = await fetch('/api/generate-simple-preview', { 
                           method: 'POST', 
@@ -577,38 +760,31 @@
                             }) 
                         });
                       console.log(`startSimplePreviewPipeline: Received response. Status: ${response.status}`);
-                      
                       if (!response.ok) { 
-                          const errorData = await response.json(); // Try to parse error
+                          const errorData = await response.json();
                           console.error(`startSimplePreviewPipeline: Error response: ${response.status}`, errorData.error); 
                           throw new Error(`Server error: ${errorData.error || response.status}`); 
                       }
-
-                      // Check if we got an image back
                       const contentType = response.headers.get("content-type");
                       if (contentType && contentType.includes("image/png")) {
                            console.log("startSimplePreviewPipeline: Received image/png blob.");
                            const imageBlob = await response.blob();
-                           simplePreviewImagePath = URL.createObjectURL(imageBlob); // Create object URL
-                           currentObjectUrl = simplePreviewImagePath; // Store for memory management
+                           simplePreviewImagePath = URL.createObjectURL(imageBlob); 
+                           currentObjectUrl = simplePreviewImagePath; 
                            console.log(`startSimplePreviewPipeline: Object URL created: ${simplePreviewImagePath}`);
                       } else {
                            console.error('startSimplePreviewPipeline: Invalid data received (not an image).');
                            throw new Error('Preview generation failed or invalid response type.');
                       }
-
                   }
                   else if (isVideo) {
-                      // Video case
                       alert("Preparing video preview...");
                       console.log("startSimplePreviewPipeline: Setting up video preview.");
                       displayVideo(currentVideoUrl, 'simple-preview-video-player'); 
                   }
-                  
-                  // Proceed to show preview if we have an image path OR a video URL
                   if (simplePreviewImagePath || currentVideoUrl) {
                       console.log("startSimplePreviewPipeline: Setting view to 'simple-preview'.");
-                      setView('simple-preview'); // This function handles showing/hiding elements
+                      setView('simple-preview'); 
                       if (simplePreviewImagePath) {
                            document.getElementById('simple-preview-image').src = simplePreviewImagePath;
                       }
@@ -617,12 +793,12 @@
              } catch (error) { console.error('!!! CATCH ERROR in simple preview pipeline:', error); alert(`Failed to create preview: ${error.message}.`); simplePreviewImagePath = null; currentVideoUrl = null; }
         }
 
-        // --- Populate Caption Display (*** UPDATED ***) ---
+        // --- Populate Caption Display ---
         function populateCaptionDisplay() {
+            // ... (This function is unchanged, it already has the "link in bio" text) ...
              console.log("populateCaptionDisplay: Function called.");
              const captionTextArea = document.getElementById('caption-text-area');
              if (!captionTextArea) { console.error("populateCaptionDisplay Error: Text area element not found!"); return; }
-             
              if (currentCuratedData && currentCuratedData.caption && currentCuratedData.headline !== "AI Failed") {
                  const caption = currentCuratedData.caption;
                  let visualSourceLine = "";
@@ -631,14 +807,10 @@
                  } else if (currentVideoUrl) {
                      try { const urlObject = new URL(currentVideoUrl); const domain = urlObject.hostname.replace(/^www\./, ''); visualSourceLine = `Visual Source: ${domain}`; } catch (e) { console.warn("Could not parse video URL:", currentVideoUrl); visualSourceLine = `Visual Source: (See video source)`; }
                  }
-                 
-                 // --- *** NEW TEXT ADDED HERE *** ---
                  const bioLinkText = "For more info, link is in the bio...";
                  const fullText = caption + 
                                   (visualSourceLine ? `\n\n${visualSourceLine}` : '') +
-                                  `\n\n${bioLinkText}`; // <-- Appended text
-                 // --- *** END OF CHANGE *** ---
-
+                                  `\n\n${bioLinkText}`; 
                  captionTextArea.value = fullText;
              } else {
                  captionTextArea.value = "AI Caption data is not available or generation failed.";
@@ -646,22 +818,20 @@
         }
         // --- Handle Copy Caption ---
         async function handleCopyCaption() {
+            // ... (This function is unchanged) ...
             const captionTextArea = document.getElementById('caption-text-area'); try { await navigator.clipboard.writeText(captionTextArea.value); alert("Caption copied!"); } catch (err) { console.error('Failed to copy:', err); alert("Failed to copy."); captionTextArea.select(); }
         }
         
-        // --- *** NEW FUNCTION: Publish Link to Bio *** ---
+        // --- Publish Link to Bio ---
         async function publishLinkToBio() {
+            // ... (This function is unchanged) ...
             if (!currentArticleData || !currentCuratedData) {
                 alert("Article data is not ready.");
                 throw new Error("Article data not ready.");
             }
-
-            // Use the AI-generated headline as the title, but clean it of markdown
             const linkTitle = (currentCuratedData.headline || "New Article").replace(/^\*\*|\*\*$/g, '');
             const linkUrl = currentArticleData.link;
-
             console.log(`Publishing to bio: "${linkTitle}" -> ${linkUrl}`);
-
             const response = await fetch('/api/links/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -670,29 +840,23 @@
                     link: linkUrl
                 })
             });
-
             if (!response.ok) {
-                // Try to get error message from server
                 let errorMsg = "Failed to add link to bio.";
                 try {
                     const errorData = await response.json();
                     errorMsg = errorData.error || errorMsg;
-                } catch (e) {
-                    // Ignore if response is not JSON
-                }
+                } catch (e) {}
                 throw new Error(errorMsg);
             }
-
             const result = await response.json();
             console.log("Link published successfully:", result.message);
         }
         
-        // --- *** NEW FUNCTION: Share and Link *** ---
+        // --- Share and Link ---
         async function handleShareAndLink() {
-            // 1. Publish the link to the bio
+            // ... (This function is unchanged) ...
             try {
                 await publishLinkToBio();
-                // 2. Trigger the normal share action
                 handleShare();
             } catch (error) {
                 console.error("Failed to publish link:", error);
@@ -702,11 +866,11 @@
         
         // --- Share Button Logic ---
         async function handleShare() {
+            // ... (This function is unchanged) ...
             if (!simplePreviewImagePath && !currentVideoUrl) { alert("No image/video generated."); return; } if (!currentCuratedData) { alert("AI caption not ready."); return; } const shareTitle = (currentCuratedData.headline || "News Post").replace(/^\*\*|\*\*$/g, ''); const shareText = document.getElementById('caption-text-area').value; let shareData = { title: shareTitle, text: shareText, };
             if (navigator.share) { 
                 try { 
                     if (simplePreviewImagePath && navigator.canShare) { 
-                        // simplePreviewImagePath is now an object URL (e.g., "blob:http://...")
                         const imageUrl = simplePreviewImagePath; 
                         console.log(`Fetching image for sharing: ${imageUrl}`); 
                         const response = await fetch(imageUrl); 
@@ -734,7 +898,6 @@
                     if (err.name === 'AbortError') { 
                         console.log('Share cancelled.'); 
                     } else { 
-                        // Fallback to copy caption if share fails
                         alert(`Sharing failed: ${err.message}. Caption copied.`); 
                         handleCopyCaption(); 
                     } 
@@ -745,6 +908,7 @@
         
         // --- Download Button Logic ---
         function handleDownload() {
+            // ... (This function is unchanged) ...
             let didDownload = false; 
             if (currentVideoUrl) { 
                 alert("Opening video URL..."); 
