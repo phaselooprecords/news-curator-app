@@ -55,6 +55,9 @@
         button#download-preview-btn { background-color: #17a2b8; margin-right: 10px; }
         button.back-button { background-color: #6c757d; margin-left: 10px;}
         button#share-preview-btn { background-color: #007bff; margin-right: 10px;}
+        /* --- NEW BUTTON STYLE --- */
+        button#share-link-btn { background-color: #28a745; margin-right: 10px; }
+        button#share-link-btn:hover { background-color: #218838; }
         button#copy-caption-btn { background-color: #6f42c1; }
         button#copy-caption-btn:hover { background-color: #5a2e9b; }
         #simple-preview-image { width: 100%; max-width: 600px; margin: auto; display: block; margin-bottom: 20px; }
@@ -114,6 +117,7 @@
             </div>
 
             <button id="share-preview-btn">Share Post</button>
+            <button id="share-link-btn">Share Post & Link in Bio</button>
             <button id="download-preview-btn">Download Image</button>
             <button onclick="setView('select')" class="back-button">Back to Selection</button>
         </div>
@@ -144,6 +148,9 @@
             document.getElementById('download-preview-btn').onclick = () => handleDownload();
             document.getElementById('share-preview-btn').onclick = () => handleShare();
             document.getElementById('copy-caption-btn').onclick = () => handleCopyCaption();
+            
+            // --- *** NEW BUTTON LISTENER *** ---
+            document.getElementById('share-link-btn').onclick = () => handleShareAndLink();
         });
 
         // --- Infinite Scroll Setup ---
@@ -610,13 +617,11 @@
              } catch (error) { console.error('!!! CATCH ERROR in simple preview pipeline:', error); alert(`Failed to create preview: ${error.message}.`); simplePreviewImagePath = null; currentVideoUrl = null; }
         }
 
-        // --- Populate Caption Display ---
+        // --- Populate Caption Display (*** UPDATED ***) ---
         function populateCaptionDisplay() {
              console.log("populateCaptionDisplay: Function called.");
              const captionTextArea = document.getElementById('caption-text-area');
              if (!captionTextArea) { console.error("populateCaptionDisplay Error: Text area element not found!"); return; }
-             console.log("populateCaptionDisplay: currentCuratedData:", currentCuratedData);
-             console.log("populateCaptionDisplay: currentImageContextUrl:", currentImageContextUrl);
              
              if (currentCuratedData && currentCuratedData.caption && currentCuratedData.headline !== "AI Failed") {
                  const caption = currentCuratedData.caption;
@@ -627,19 +632,72 @@
                      try { const urlObject = new URL(currentVideoUrl); const domain = urlObject.hostname.replace(/^www\./, ''); visualSourceLine = `Visual Source: ${domain}`; } catch (e) { console.warn("Could not parse video URL:", currentVideoUrl); visualSourceLine = `Visual Source: (See video source)`; }
                  }
                  
-                 const fullText = caption + (visualSourceLine ? `\n\n${visualSourceLine}` : '');
+                 // --- *** NEW TEXT ADDED HERE *** ---
+                 const bioLinkText = "For more info, link is in the bio...";
+                 const fullText = caption + 
+                                  (visualSourceLine ? `\n\n${visualSourceLine}` : '') +
+                                  `\n\n${bioLinkText}`; // <-- Appended text
+                 // --- *** END OF CHANGE *** ---
 
                  captionTextArea.value = fullText;
-                 console.log("populateCaptionDisplay: Populated text area with AI social caption and visual source.");
-             
              } else {
                  captionTextArea.value = "AI Caption data is not available or generation failed.";
-                 console.log("populateCaptionDisplay: Populated with error message.");
              }
         }
         // --- Handle Copy Caption ---
         async function handleCopyCaption() {
             const captionTextArea = document.getElementById('caption-text-area'); try { await navigator.clipboard.writeText(captionTextArea.value); alert("Caption copied!"); } catch (err) { console.error('Failed to copy:', err); alert("Failed to copy."); captionTextArea.select(); }
+        }
+        
+        // --- *** NEW FUNCTION: Publish Link to Bio *** ---
+        async function publishLinkToBio() {
+            if (!currentArticleData || !currentCuratedData) {
+                alert("Article data is not ready.");
+                throw new Error("Article data not ready.");
+            }
+
+            // Use the AI-generated headline as the title, but clean it of markdown
+            const linkTitle = (currentCuratedData.headline || "New Article").replace(/^\*\*|\*\*$/g, '');
+            const linkUrl = currentArticleData.link;
+
+            console.log(`Publishing to bio: "${linkTitle}" -> ${linkUrl}`);
+
+            const response = await fetch('/api/links/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: linkTitle,
+                    link: linkUrl
+                })
+            });
+
+            if (!response.ok) {
+                // Try to get error message from server
+                let errorMsg = "Failed to add link to bio.";
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) {
+                    // Ignore if response is not JSON
+                }
+                throw new Error(errorMsg);
+            }
+
+            const result = await response.json();
+            console.log("Link published successfully:", result.message);
+        }
+        
+        // --- *** NEW FUNCTION: Share and Link *** ---
+        async function handleShareAndLink() {
+            // 1. Publish the link to the bio
+            try {
+                await publishLinkToBio();
+                // 2. Trigger the normal share action
+                handleShare();
+            } catch (error) {
+                console.error("Failed to publish link:", error);
+                alert(`Error publishing link: ${error.message}. Sharing was cancelled.`);
+            }
         }
         
         // --- Share Button Logic ---
@@ -671,13 +729,13 @@
                     } 
                     await navigator.share(shareData); 
                     console.log('Successful share via Web Share API'); 
-                    alert('Shared successfully!'); 
                 } catch (err) { 
                     console.error('Error during Web Share API:', err); 
                     if (err.name === 'AbortError') { 
                         console.log('Share cancelled.'); 
                     } else { 
-                        alert(`Sharing failed: ${err.message}`); 
+                        // Fallback to copy caption if share fails
+                        alert(`Sharing failed: ${err.message}. Caption copied.`); 
                         handleCopyCaption(); 
                     } 
                 } 
@@ -693,7 +751,6 @@
                 window.open(currentVideoUrl, '_blank'); 
                 didDownload = true; 
             } else if (simplePreviewImagePath) { 
-                // This works for object URLs
                 if (!currentCuratedData) { alert("AI data needed for filename."); return; } 
                 const link = document.createElement('a'); 
                 link.href = simplePreviewImagePath; 
