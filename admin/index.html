@@ -16,7 +16,7 @@
         .article p { font-size: 0.8em; color: #ccc; margin-top: 0;}
         .article-image { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin-right: 15px; flex-shrink: 0; }
 
-        /* --- NEW: Filter Menu Styles --- */
+        /* --- Filter Menu Styles --- */
         #filter-menu-btn {
             position: absolute;
             top: 0;
@@ -189,11 +189,13 @@
 <body>
     <div class="container">
 
+        <!-- --- Filter Menu HTML --- -->
         <button id="filter-menu-btn">
             <span></span>
             <span></span>
             <span></span>
         </button>
+        <!-- --- UPDATED: Filter Dropdown with all new categories --- -->
         <div id="filter-dropdown">
             <a href="#" class="filter-option" data-category="all">All Topics</a>
             <a href="#" class="filter-option" data-category="📰 Top-Level World & US News">📰 Top-Level World & US News</a>
@@ -219,6 +221,8 @@
             <a href="#" class="filter-option" data-category="🕵️ Investigative & Fact-Checking">🕵️ Investigative & Fact-Checking</a>
             <a href="#" class="filter-option" data-category="🎙️ Popular Podcasts (as Feeds)">🎙️ Popular Podcasts (as Feeds)</a>
         </div>
+        <!-- --- END: Filter Menu HTML --- -->
+
         <div id="view-toggle-container">
             <button id="view-toggle-btn">Manage Links</button>
         </div>
@@ -544,14 +548,103 @@
         }
 
 
-        // --- NEW: Filter News Function ---
+        // --- *** NEW: Filter News Function *** ---
+        // This function now filters by SOURCE NAME, exactly as you wanted.
         function filterNews(category) {
             console.log(`Filtering by category: ${category}`);
+
+            // This map links the category name to the *exact* source names from fetch-worker.js
+            const sourceCategoryMap = {
+                '📰 Top-Level World & US News': [
+                    'Reuters - Top News', 'Reuters - World News', 'Associated Press - Top News',
+                    'BBC News - World', 'New York Times - Home Page', 'The Guardian - World',
+                    'NPR - News', 'Al Jazeera - English', 'ABC News - Top Stories',
+                    'NBC News - Top Stories', 'CBS News - Main', 'LA Times - Top News'
+                ],
+                '🌍 International & Regional News': [
+                    'Deutsche Welle (DW) - All', 'Le Monde - International (English)', 'Times of India - Top Stories',
+                    'BBC News - Asia', 'BBC News - Europe', 'Axios - World', 'Foreign Policy'
+                ],
+                '🏛️ Politics & Policy': [
+                    'Politico', 'The Hill', 'NPR - Politics', 'New York Times - Politics',
+                    'ProPublica', 'Snopes', 'The Intercept' // Moved from other groups
+                ],
+                '💼 Business & Finance': [
+                    'Wall Street Journal - Business', 'The Economist - Business', 'Financial Times - Home (UK)',
+                    'Bloomberg - Top News', 'CNBC - Top News', 'Harvard Business Review',
+                    'Forbes', 'MarketWatch - Top Stories', 'Fast Company', 'Freakonomics Radio' // Moved from other groups
+                ],
+                '💻 Technology (General)': [
+                    'TechCrunch', 'The Verge', 'Ars Technica', 'Wired', 'Hacker News',
+                    'ZDNet', 'Engadget', 'MIT Technology Review', 'Techmeme', 'Jalopnik' // Moved from other groups
+                ],
+                '🤖 AI & Cybersecurity': [
+                    'Google AI Blog', 'The Hacker News', 'Krebs on Security', 'Schneier on Security',
+                    'Dark Reading', 'Bleeping Computer'
+                ],
+                '🔬 Science & Space': [
+                    'NASA - Breaking News', 'Nature', 'Scientific American', 'ScienceDaily',
+                    'Quanta Magazine', 'Space.com', 'Radiolab' // Moved from other groups
+                ],
+                '🩺 Health & Medicine': [
+                    'STAT News', 'MedPage Today', 'NPR - Health', 'New York Times - Health'
+                ],
+                '🌿 Environment & Climate': [
+                    'Grist', 'Inside Climate News', 'The Guardian - Environment'
+                ],
+                '🤔 Culture, Opinion & Long-form': [
+                    'The Atlantic', 'The New Yorker', 'Aeon', 'NYT - Opinion', 'The Guardian - Opinion',
+                    'Vogue', 'Hypebeast', 'Eater (All)', 'Bon Appétit', 'Smitten Kitchen', // Moved
+                    'Daily Stoic', 'Lifehacker', 'WIRED - Ideas', 'This American Life' // Moved
+                ],
+                '🎬 Entertainment & Fandom': [
+                    'Variety', 'The Hollywood Reporter', 'Deadline', 'Comic Book Resources (CBR)',
+                    'The Mary Sue', 'Kotaku', 'IGN', 'Game Rant', 'GameSpot - All News', 'Polygon' // Moved
+                ],
+                '🎨 Creative: Art & Photography': [
+                    'Colossal (Art)', 'Hyperallergic', 'PetaPixel (Photography)', 'Booooooom',
+                    '99% Invisible' // Moved
+                ],
+                '🏠 Creative: Design & Architecture': [
+                    'Dezeen', 'designboom', 'Swissmiss', 'Curbed'
+                ],
+                '👟 Creative: Fashion & Style': [
+                    'Vogue', 'Hypebeast'
+                ],
+                '🍔 Hobbies: Food & Cooking': [
+                    'Eater (All)', 'Bon Appétit', 'Smitten Kitchen'
+                ],
+                '🎮 Hobbies: Video Games': [
+                    'Kotaku', 'IGN', 'Game Rant', 'GameSpot - All News', 'Polygon'
+                ],
+                '⚽ Hobbies: Sports': [
+                    'ESPN', 'BBC Sport', 'SB Nation'
+                ],
+                '🚗 Hobbies: Automotive': [
+                    'Jalopnik'
+                ],
+                '📚 Intellectual: History, Philosophy, Literature': [
+                    'Daily Stoic'
+                ],
+                '💡 Lifestyle & Productivity': [
+                    'Lifehacker', 'Fast Company', 'WIRED - Ideas'
+                ],
+                '🕵️ Investigative & Fact-Checking': [
+                    'ProPublica', 'Snopes', 'The Intercept'
+                ],
+                '🎙️ Popular Podcasts (as Feeds)': [
+                    '99% Invisible', 'This American Life', 'Radiolab', 'Freakonomics Radio'
+                ]
+            };
+
+            const allowedSources = sourceCategoryMap[category];
             const allArticles = document.querySelectorAll('#news-list .article');
             let visibleCount = 0;
 
             allArticles.forEach(article => {
-                if (category === 'all' || article.dataset.category === category) {
+                const articleSource = article.dataset.source;
+                // Check if 'all' is selected OR if the article's source is in the allowed list
+                if (category === 'all' || (allowedSources && allowedSources.includes(articleSource))) {
                     article.style.display = 'flex';
                     visibleCount++;
                 } else {
@@ -560,8 +653,7 @@
             });
 
             if (visibleCount === 0 && category !== 'all') {
-                // Optionally show a message if no articles match
-                // For now, it just shows a blank list
+                // No articles found
             }
         }
 
@@ -589,8 +681,8 @@
                     articleElement.dataset.link = article.link;
                     
                     // --- *** THIS IS THE FIX *** ---
-                    // Default old/uncategorized articles to the first category
-                    articleElement.dataset.category = article.category || '📰 Top-Level World & US News';
+                    // Add the source name to the article element so the filter can read it
+                    articleElement.dataset.source = article.source;
                     // --- *** END FIX *** ---
 
                     const imgElement = document.createElement('img'); imgElement.className = 'article-image';
