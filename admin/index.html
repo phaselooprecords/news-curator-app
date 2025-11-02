@@ -53,16 +53,21 @@
             border: 1px solid #444;
             border-radius: 8px;
             z-index: 99;
-            width: 180px;
+            width: 320px; /* Increased width for longer text */
             padding: 10px 0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            max-height: 400px; /* Added max-height for scrolling */
+            overflow-y: auto; /* Added overflow scrolling */
         }
         #filter-dropdown a {
             display: block;
             padding: 10px 20px;
             color: #e0e0e0;
             text-decoration: none;
-            font-size: 1em;
+            font-size: 0.9em; /* Slightly smaller font */
+            white-space: nowrap; /* Prevent line breaks */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         #filter-dropdown a:hover {
             background-color: #3a3a3a;
@@ -184,7 +189,6 @@
 <body>
     <div class="container">
 
-        <!-- --- NEW: Filter Menu HTML --- -->
         <button id="filter-menu-btn">
             <span></span>
             <span></span>
@@ -192,20 +196,29 @@
         </button>
         <div id="filter-dropdown">
             <a href="#" class="filter-option" data-category="all">All Topics</a>
-            <a href="#" class="filter-option" data-category="Daily">Daily</a>
-            <a href="#" class="filter-option" data-category="Politics">Politics</a>
-            <a href="#" class="filter-option" data-category="Business">Business</a>
-            <a href="#" class="filter-option" data-category="Tech">Tech</a>
-            <a href="#" class="filter-option" data-category="Science">Science</a>
-            <a href="#" class="filter-option" data-category="Health">Health</a>
-            <a href="#" class="filter-option" data-category="Sports">Sports</a>
-            <a href="#" class="filter-option" data-category="Entertainment">Entertainment</a>
-            <a href="#" class="filter-option" data-category="Art">Art</a>
-            <a href="#" class="filter-option" data-category="Culture">Culture</a>
-            <a href="#" class="filter-option" data-category="Nature">Nature</a>
+            <a href="#" class="filter-option" data-category="📰 Top-Level World & US News">📰 Top-Level World & US News</a>
+            <a href="#" class="filter-option" data-category="🌍 International & Regional News">🌍 International & Regional News</a>
+            <a href="#" class="filter-option" data-category="🏛️ Politics & Policy">🏛️ Politics & Policy</a>
+            <a href="#" class="filter-option" data-category="💼 Business & Finance">💼 Business & Finance</a>
+            <a href="#" class="filter-option" data-category="💻 Technology (General)">💻 Technology (General)</a>
+            <a href="#" class="filter-option" data-category="🤖 AI & Cybersecurity">🤖 AI & Cybersecurity</a>
+            <a href="#" class="filter-option" data-category="🔬 Science & Space">🔬 Science & Space</a>
+            <a href="#" class="filter-option" data-category="🩺 Health & Medicine">🩺 Health & Medicine</a>
+            <a href="#" class="filter-option" data-category="🌿 Environment & Climate">🌿 Environment & Climate</a>
+            <a href="#" class="filter-option" data-category="🤔 Culture, Opinion & Long-form">🤔 Culture, Opinion & Long-form</a>
+            <a href="#" class="filter-option" data-category="🎬 Entertainment & Fandom">🎬 Entertainment & Fandom</a>
+            <a href="#" class="filter-option" data-category="🎨 Creative: Art & Photography">🎨 Creative: Art & Photography</a>
+            <a href="#" class="filter-option" data-category="🏠 Creative: Design & Architecture">🏠 Creative: Design & Architecture</a>
+            <a href="#" class="filter-option" data-category="👟 Creative: Fashion & Style">👟 Creative: Fashion & Style</a>
+            <a href="#" class="filter-option" data-category="🍔 Hobbies: Food & Cooking">🍔 Hobbies: Food & Cooking</a>
+            <a href="#" class="filter-option" data-category="🎮 Hobbies: Video Games">🎮 Hobbies: Video Games</a>
+            <a href="#" class="filter-option" data-category="⚽ Hobbies: Sports">⚽ Hobbies: Sports</a>
+            <a href="#" class="filter-option" data-category="🚗 Hobbies: Automotive">🚗 Hobbies: Automotive</a>
+            <a href="#" class="filter-option" data-category="📚 Intellectual: History, Philosophy, Literature">📚 Intellectual: History, Philosophy, Literature</a>
+            <a href="#" class="filter-option" data-category="💡 Lifestyle & Productivity">💡 Lifestyle & Productivity</a>
+            <a href="#" class="filter-option" data-category="🕵️ Investigative & Fact-Checking">🕵️ Investigative & Fact-Checking</a>
+            <a href="#" class="filter-option" data-category="🎙️ Popular Podcasts (as Feeds)">🎙️ Popular Podcasts (as Feeds)</a>
         </div>
-        <!-- --- END: Filter Menu HTML --- -->
-
         <div id="view-toggle-container">
             <button id="view-toggle-btn">Manage Links</button>
         </div>
@@ -530,6 +543,7 @@
             }
         }
 
+
         // --- NEW: Filter News Function ---
         function filterNews(category) {
             console.log(`Filtering by category: ${category}`);
@@ -554,7 +568,6 @@
 
         // --- Fetch Initial News Feed (UPDATED) ---
         async function fetchNews() {
-            // ... (This function is unchanged, but now includes category data) ...
             console.log("fetchNews function STARTED.");
             const newsListElement = document.getElementById('news-list');
             if (!newsListElement) { console.error("CRITICAL ERROR: news-list element NOT FOUND!"); alert("Page structure error."); return; }
@@ -574,8 +587,11 @@
                     const articleElement = document.createElement('div'); 
                     articleElement.className = 'article'; 
                     articleElement.dataset.link = article.link;
-                    // --- NEW: Add category to dataset ---
-                    articleElement.dataset.category = article.category || 'General';
+                    
+                    // --- *** THIS IS THE FIX *** ---
+                    // Default old/uncategorized articles to the first category
+                    articleElement.dataset.category = article.category || '📰 Top-Level World & US News';
+                    // --- *** END FIX *** ---
 
                     const imgElement = document.createElement('img'); imgElement.className = 'article-image';
                     imgElement.src = article.originalImageUrl || '/fallback-thumbnail.png'; 
@@ -933,7 +949,7 @@
 
         // --- Populate Caption Display ---
         function populateCaptionDisplay() {
-            // ... (This function is unchanged, it already has the "link in bio" text) ...
+            // ... (This function is unchanged) ...
              console.log("populateCaptionDisplay: Function called.");
              const captionTextArea = document.getElementById('caption-text-area');
              if (!captionTextArea) { console.error("populateCaptionDisplay Error: Text area element not found!"); return; }
@@ -1070,4 +1086,3 @@
     </script>
 </body>
 </html>
-
