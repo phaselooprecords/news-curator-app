@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loop Feeds [Loops]</title>
+    <!-- Updated Title -->
+    <title>Loop Feeds</title>
 
-
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsb$
-                 crossorigin="anonymous"></script>
-
-         <meta name="google-adsense-account" content="ca-pub-9795588820321997">
+    <!-- Your Google AdSense Code -->
+    <meta name="google-adsense-account" content="ca-pub-9795588820321997">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9795588820321997"
+         crossorigin="anonymous"></script>
+    <!-- End AdSense Code -->
 
 
     <style>
@@ -27,11 +28,29 @@
             width: 100%;
             text-align: center;
         }
+        /* Updated h1 style to act as a logo */
         h1 {
             color: #ffffff;
-            font-size: 1.5rem;
+            font-size: 2.5rem; /* Larger font size */
+            font-weight: 700; /* Bolder */
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+        /* Placeholder for your ad unit */
+        .ad-placeholder {
+            width: 100%;
+            min-height: 100px;
+            background-color: #222;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 0.9rem;
             margin-bottom: 30px;
         }
+
         #link-list-content {
             display: flex;
             flex-direction: column;
@@ -68,14 +87,26 @@
 </head>
 <body>
     <div class="container">
-        <h1>Curated News</h1>
+        <!-- Updated H1 to "Loop Feeds" -->
+        <h1>Loop Feeds</h1>
         
+        <!-- 
+          Your Google Ad unit code (the <ins> tag) goes here. 
+          The script in the <head> just loads AdSense, 
+          this part below is what displays an actual ad.
+        -->
+        <div class="ad-placeholder">
+            <!-- Example: <ins class="adsbygoogle" ...></ins> -->
+            Google Ad Unit Placeholder
+        </div>
+
         <div id="link-list-content">
             <p class="loader">Loading links...</p>
         </div>
 
         <div class="footer">
-            <p>Powered by News Curator</p>
+            <!-- Updated footer text -->
+            <p>Powered by Loop Feeds</p>
         </div>
     </div>
 
@@ -87,9 +118,7 @@
         async function fetchLinks() {
             const contentArea = document.getElementById('link-list-content');
             try {
-                // This is the same API endpoint your admin panel uses
-                // It will now fetch from 'curator_links' because we
-                // updated the server's database.js file.
+                // This API endpoint is correct
                 const response = await fetch('/api/links/get');
                 if (!response.ok) throw new Error('Failed to fetch links.');
                 

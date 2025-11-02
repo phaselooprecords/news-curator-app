@@ -7,7 +7,7 @@
     <style>
         /* Base Styling + News List Image */
         body { font-family: Arial, sans-serif; background-color: #000000; color: #f0f0f0; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: auto; }
+        .container { max-width: 600px; margin: auto; position: relative; } /* Added position: relative */
         h1, h2, h3 { color: #ffffff; border-bottom: 2px solid #555; padding-bottom: 10px; text-align: center; margin-bottom: 15px; }
         h3 { border-bottom: none; font-size: 1.1em; }
         .article { background-color: #111111; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; }
@@ -15,6 +15,59 @@
         .article h2 { margin-top: 0; font-size: 1.2em; color: #ffffff; border-bottom: none; text-align: left; margin-bottom: 5px; }
         .article p { font-size: 0.8em; color: #ccc; margin-top: 0;}
         .article-image { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin-right: 15px; flex-shrink: 0; }
+
+        /* --- NEW: Filter Menu Styles --- */
+        #filter-menu-btn {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 100;
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        #filter-menu-btn span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: white;
+            border-radius: 1px;
+        }
+        #filter-dropdown {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 50px;
+            left: 0;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            z-index: 99;
+            width: 180px;
+            padding: 10px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        #filter-dropdown a {
+            display: block;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            text-decoration: none;
+            font-size: 1em;
+        }
+        #filter-dropdown a:hover {
+            background-color: #3a3a3a;
+        }
+        /* --- END: Filter Menu Styles --- */
 
         /* UI State & Image Grid + Context Links */
         .hidden { display: none; }
@@ -69,6 +122,8 @@
         #view-toggle-container {
             text-align: right;
             margin-bottom: 15px;
+            /* Add margin to not overlap with filter button */
+            margin-left: 60px;
         }
         #view-toggle-btn {
             background-color: #343a40;
@@ -128,6 +183,28 @@
 </head>
 <body>
     <div class="container">
+
+        <!-- --- NEW: Filter Menu HTML --- -->
+        <button id="filter-menu-btn">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <div id="filter-dropdown">
+            <a href="#" class="filter-option" data-category="all">All Topics</a>
+            <a href="#" class="filter-option" data-category="Daily">Daily</a>
+            <a href="#" class="filter-option" data-category="Politics">Politics</a>
+            <a href="#" class="filter-option" data-category="Business">Business</a>
+            <a href="#" class="filter-option" data-category="Tech">Tech</a>
+            <a href="#" class="filter-option" data-category="Science">Science</a>
+            <a href="#" class="filter-option" data-category="Health">Health</a>
+            <a href="#" class="filter-option" data-category="Sports">Sports</a>
+            <a href="#" class="filter-option" data-category="Entertainment">Entertainment</a>
+            <a href="#" class="filter-option" data-category="Art">Art</a>
+            <a href="#" class="filter-option" data-category="Culture">Culture</a>
+            <a href="#" class="filter-option" data-category="Nature">Nature</a>
+        </div>
+        <!-- --- END: Filter Menu HTML --- -->
 
         <div id="view-toggle-container">
             <button id="view-toggle-btn">Manage Links</button>
@@ -239,6 +316,33 @@
                     handleDeleteLink(linkId);
                 }
             });
+
+            // --- NEW: Filter Menu Listeners ---
+            const filterBtn = document.getElementById('filter-menu-btn');
+            const filterDropdown = document.getElementById('filter-dropdown');
+            
+            filterBtn.onclick = (e) => {
+                e.stopPropagation(); // Prevent body click
+                const isHidden = filterDropdown.style.display === 'none' || filterDropdown.style.display === '';
+                filterDropdown.style.display = isHidden ? 'block' : 'none';
+            };
+
+            // Add listener to all filter options
+            document.querySelectorAll('.filter-option').forEach(item => {
+                item.onclick = (e) => {
+                    e.preventDefault();
+                    const category = e.target.dataset.category;
+                    filterNews(category);
+                    filterDropdown.style.display = 'none'; // Hide dropdown after click
+                };
+            });
+
+            // Hide dropdown if clicking anywhere else
+            document.body.onclick = (e) => {
+                if (e.target.id !== 'filter-menu-btn' && !e.target.closest('#filter-menu-btn')) {
+                    filterDropdown.style.display = 'none';
+                }
+            };
         });
 
         // --- Infinite Scroll Setup ---
@@ -277,21 +381,25 @@
             document.getElementById('link-management-view').classList.add('hidden');
 
             const toggleBtn = document.getElementById('view-toggle-btn');
+            const filterBtn = document.getElementById('filter-menu-btn'); // Get filter button
             
             if (viewId === 'list') { 
                 document.getElementById('news-feed-view').classList.remove('hidden');
                 toggleBtn.textContent = "Manage Links";
+                filterBtn.style.display = 'flex'; // Show filter button
                 console.log("setView: Showing 'news-feed-view'.");
             }
             else if (viewId === 'select') { 
                 document.getElementById('selection-view').classList.remove('hidden');
                 console.log("setView: Showing 'selection-view'.");
                 toggleBtn.textContent = "News Feed"; // Button text to go back
+                filterBtn.style.display = 'none'; // Hide filter button
             }
             else if (viewId === 'simple-preview') {
                 document.getElementById('simple-preview-view').classList.remove('hidden');
                 console.log("setView: Showing 'simple-preview-view'.");
                 populateCaptionDisplay();
+                filterBtn.style.display = 'none'; // Hide filter button
                 // ... (rest of the logic is unchanged) ...
                 const downloadBtn = document.getElementById('download-preview-btn');
                 const imgPreview = document.getElementById('simple-preview-image');
@@ -312,6 +420,7 @@
             else if (viewId === 'link-management') {
                 document.getElementById('link-management-view').classList.remove('hidden');
                 toggleBtn.textContent = "Back to News Feed";
+                filterBtn.style.display = 'none'; // Hide filter button
                 console.log("setView: Showing 'link-management-view'.");
                 fetchAndRenderLinks(); // Load the links when switching to this view
             }
@@ -320,11 +429,13 @@
         // --- NEW: View Toggle Function ---
         function toggleView() {
             const linkView = document.getElementById('link-management-view');
-            if (linkView.classList.contains('hidden')) {
+            const selectionView = document.getElementById('selection-view');
+            
+            if (linkView.classList.contains('hidden') && selectionView.classList.contains('hidden')) {
                 // We are on the news feed, switch to link management
                 setView('link-management');
             } else {
-                // We are on link management, switch to news feed
+                // We are on link management OR selection view, switch to news feed
                 setView('list');
             }
         }
@@ -419,10 +530,31 @@
             }
         }
 
+        // --- NEW: Filter News Function ---
+        function filterNews(category) {
+            console.log(`Filtering by category: ${category}`);
+            const allArticles = document.querySelectorAll('#news-list .article');
+            let visibleCount = 0;
 
-        // --- Fetch Initial News Feed ---
+            allArticles.forEach(article => {
+                if (category === 'all' || article.dataset.category === category) {
+                    article.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    article.style.display = 'none';
+                }
+            });
+
+            if (visibleCount === 0 && category !== 'all') {
+                // Optionally show a message if no articles match
+                // For now, it just shows a blank list
+            }
+        }
+
+
+        // --- Fetch Initial News Feed (UPDATED) ---
         async function fetchNews() {
-            // ... (This function is unchanged) ...
+            // ... (This function is unchanged, but now includes category data) ...
             console.log("fetchNews function STARTED.");
             const newsListElement = document.getElementById('news-list');
             if (!newsListElement) { console.error("CRITICAL ERROR: news-list element NOT FOUND!"); alert("Page structure error."); return; }
@@ -439,12 +571,18 @@
                 newsListElement.innerHTML = '';
                 console.log("Cleared loading message. Starting article loop...");
                 articles.forEach((article, index) => {
-                    const articleElement = document.createElement('div'); articleElement.className = 'article'; articleElement.dataset.link = article.link;
+                    const articleElement = document.createElement('div'); 
+                    articleElement.className = 'article'; 
+                    articleElement.dataset.link = article.link;
+                    // --- NEW: Add category to dataset ---
+                    articleElement.dataset.category = article.category || 'General';
+
                     const imgElement = document.createElement('img'); imgElement.className = 'article-image';
                     imgElement.src = article.originalImageUrl || '/fallback-thumbnail.png'; 
                     imgElement.alt = 'Article thumbnail'; 
                     imgElement.onerror = function() { this.src='/fallback-thumbnail.png'; };
-                    const contentElement = document.createElement('div'); contentElement.className = 'article-content'; contentElement.innerHTML = `<h2>${article.title}</h2><p>Source: ${article.source} | Published: ${new Date(article.pubDate).toLocaleDateString()}</p>`;
+                    const contentElement = document.createElement('div'); contentElement.className = 'article-content'; 
+                    contentElement.innerHTML = `<h2>${article.title}</h2><p>Source: ${article.source} | Published: ${new Date(article.pubDate).toLocaleDateString()}</p>`;
                     articleElement.appendChild(imgElement); articleElement.appendChild(contentElement);
                     articleElement.onclick = () => handleArticleTap(article);
                     newsListElement.appendChild(articleElement);
